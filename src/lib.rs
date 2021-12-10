@@ -4,8 +4,9 @@
 //  Noah Lanson
 //
 // Todo:
-//   - Hash engine data stores (prior to hash finalization)
-//   - Data padding (512 bit for SHA256)
+//   - Data padding tests
+//   - Message block from message tests
+//   - Message schedule creation (words)
 //   - The rest of the hash function...
 
 // Code modules
