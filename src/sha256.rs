@@ -6,9 +6,9 @@ use crate::core::{
     message::{
         Pad,
         Message,
-        MessageBlock
-    },
-    functions
+        MessageBlock,
+        MessageSchedule
+    }
 };
 
 const SHA256_BLOCK_SIZE: usize = 64;
@@ -27,6 +27,11 @@ impl Sha2Engine for Sha256 {
     fn hash<const N: usize>(self) -> [u8; N] {
         let message = self.pad();
         let blocks: Vec<MessageBlock<SHA256_BLOCK_SIZE>> = MessageBlock::from_message(message);
+        for block in blocks {
+            let schedule: MessageSchedule<u32, 64> = MessageSchedule::from(block);
+
+            //compression with state registers...
+        }
 
         todo!();
     }

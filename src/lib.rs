@@ -6,8 +6,9 @@
 // Todo:
 //   - Data padding tests
 //   - Message block from message tests
-//   - Message schedule creation (words)
-//   - The rest of the hash function...
+//   - Message schedule creation tests
+//   - Compression functions for each message block
+//   - Apply logic into Sha 224, 384 and 512
 
 // Code modules
 mod constants;
