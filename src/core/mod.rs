@@ -12,14 +12,20 @@ use std::ops::{
 
 
 
-/// Sha2Engine trait
+/// HashEngine trait
+/// 
 /// Includes methods that all Sha2 hash functions share on a high level.
-pub trait Sha2Engine {
+/// The generic parameters indicate how many bits each word in the message schedule
+/// and state registers should use as well as the length constraints for the Message.
+pub trait HashEngine<const N: usize> {
     /// Input data into the engine.
     fn input<I>(&mut self, data: I) where I: Iterator<Item=u8>;
 
+    /// Read the data inputted into the engine
+    fn read_input(self) -> Vec<u8>;
+
     /// Complete the hash with the inputted data.
-    fn hash<const N: usize>(self) -> [u8; N];
+    fn hash(self) -> [u8; N];
 }
 
 pub trait Primitive:
@@ -32,7 +38,7 @@ pub trait Primitive:
     Shr<usize, Output = Self> +
     Copy
 {
-    fn rotate_right(&self, bits: usize) -> Self;
+    fn rotr(&self, bits: usize) -> Self;
 
     fn add_mod<T: Primitive + From<u128>>(a: T, b: T, mod_pow: u32) -> T {
         let a: u128 = a.into();
@@ -42,13 +48,13 @@ pub trait Primitive:
 }
 
 impl Primitive for u32{ 
-    fn rotate_right(&self, bits: usize) -> Self {
-        self.rotate_right(bits)
+    fn rotr(&self, bits: usize) -> Self {
+        self.rotate_right(bits as u32)
     }
 }
 
 impl Primitive for u64{
-    fn rotate_right(&self, bits: usize) -> Self {
-        self.rotate_right(bits)
+    fn rotr(&self, bits: usize) -> Self {
+        self.rotate_right(bits as u32)
     }
 }

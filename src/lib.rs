@@ -9,10 +9,14 @@
 //   - Message schedule creation tests
 //   - Compression functions for each message block
 //   - Apply logic into Sha 224, 384 and 512
+//          > this includes updating the rotational and shift values of the sigma functions
+//            and creating and implementing hash engine struct and traits for the other
+//            functions.
+//   - Look into generalizing the [`HashEngine::hash()`] method.
 
 // Code modules
-mod constants;
 mod core;
+mod constants;
 mod sha256;
 
 

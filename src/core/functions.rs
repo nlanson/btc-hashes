@@ -20,20 +20,20 @@ pub fn majority<T: Primitive + BitAnd<Output = T> + BitXor<Output = T>>(x: T, y:
 
 /// Uppercase Sigma 0 (Σ0)
 pub fn usigma0<T: Primitive + BitXor<Output = T>>(x: T) -> T {
-    x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
+    x.rotr(2) ^ x.rotr(13) ^ x.rotr(22)
 }
 
 /// Uppercase Sigma 1 (Σ1)
 pub fn usigma1<T: Primitive + BitXor<Output = T>>(x: T) -> T {
-    x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
+    x.rotr(6) ^ x.rotr(11) ^ x.rotr(25)
 }
 
 /// Lowercase Sigma 0 (σ0)
 pub fn lsigma0<T: Primitive + BitXor<Output = T> + Shr<usize, Output = T>>(x: T) -> T {
-    x.rotate_right(6) ^ x.rotate_right(11) ^ (x>>3)
+    x.rotr(6) ^ x.rotr(11) ^ (x>>3)
 }
 
 /// Lowercase Sigma 1 (σ1)
 pub fn lsigma1<T: Primitive + BitXor<Output = T> + Shr<usize, Output = T>>(x: T) -> T {
-    x.rotate_right(17) ^ x.rotate_right(19) ^ (x>>10)
+    x.rotr(17) ^ x.rotr(19) ^ (x>>10)
 }
