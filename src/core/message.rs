@@ -43,7 +43,7 @@ pub struct Message<const N: usize>(pub Vec<u8>);
 
 impl<const N: usize> Message<N> {
     pub fn new(message: Vec<u8>) -> Message<N> {
-        assert_eq!(message.len(),  N);
+        assert_eq!(message.len()%N,  0);
         Message(message)
     }
 }
