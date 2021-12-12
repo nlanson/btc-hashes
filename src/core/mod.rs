@@ -6,6 +6,7 @@
 
 pub mod message;
 pub mod functions;
+pub mod state;
 use std::ops::{
     Add, Rem, BitXor, BitAnd, Not, Shr
 };
@@ -18,8 +19,10 @@ use std::ops::{
 /// The generic parameters indicate how many bits each word in the message schedule
 /// and state registers should use as well as the length constraints for the Message.
 pub trait HashEngine<const N: usize> {
+    fn new() -> Self;
+    
     /// Input data into the engine.
-    fn input<I>(&mut self, data: I) where I: Iterator<Item=u8>;
+    fn input(&mut self, data: &[u8]);
 
     /// Read the data inputted into the engine
     fn read_input(self) -> Vec<u8>;
@@ -30,6 +33,7 @@ pub trait HashEngine<const N: usize> {
 
 pub trait Primitive:
     Into<u128> +
+    Into<u64> +
     Add +
     Rem +
     BitAnd<Output = Self> +
@@ -39,12 +43,6 @@ pub trait Primitive:
     Copy
 {
     fn rotr(&self, bits: usize) -> Self;
-
-    fn add_mod<T: Primitive + From<u128>>(a: T, b: T, mod_pow: u32) -> T {
-        let a: u128 = a.into();
-        let b: u128 = b.into();
-        T::from((a+b) % 2u128.pow(mod_pow))
-    }
 }
 
 impl Primitive for u32{ 
