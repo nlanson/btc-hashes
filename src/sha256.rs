@@ -1,8 +1,5 @@
 // The SHA256 module is where the SHA256 hash function is implemented.
 //
-
-use std::convert::TryInto;
-
 use crate::{
     core::{
         HashEngine,
@@ -19,6 +16,7 @@ use crate::{
         SHA256_ROUND_CONSTANTS
     }
 };
+use std::convert::TryInto;
 
 const SHA256_DIGEST_SIZE: usize = 32;
 const SHA256_BLOCK_SIZE: usize = 64;
@@ -27,7 +25,7 @@ pub struct Sha256 {
     input: Vec<u8>
 }
 
-impl HashEngine<SHA256_DIGEST_SIZE> for Sha256 {
+impl HashEngine<SHA256_DIGEST_SIZE, SHA256_BLOCK_SIZE> for Sha256 {
     fn new() -> Self {
         Sha256 {
             input: vec![]
@@ -52,11 +50,12 @@ impl HashEngine<SHA256_DIGEST_SIZE> for Sha256 {
             state.compute_schedule(schedule, SHA256_ROUND_CONSTANTS);
         }
 
-        let mut result: Vec<u8> = vec![];
-        for val in state.read() {
-            result.extend(val.to_be_bytes());
+        let state = &state.read()[0..SHA256_DIGEST_SIZE/4];
+        let mut digest = vec![];
+        for i in 0..state.len() {
+            digest.extend(state[i].to_be_bytes());
         }
-        result.try_into().expect("Invalid digest length")
+        digest.try_into().expect("Bad digest")
     }
 }
 

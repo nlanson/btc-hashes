@@ -18,7 +18,10 @@
 mod core;
 mod constants;
 mod sha256;
+mod sha224;
 
 
 /// API
+pub use crate::core::HashEngine;
 pub use sha256::Sha256;
+pub use sha224::Sha224;

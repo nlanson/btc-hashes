@@ -7,18 +7,29 @@
 pub mod message;
 pub mod functions;
 pub mod state;
+use message::{
+    Message, MessageBlock, MessageSchedule, Pad
+};
+use state::{
+    State, Compression
+};
 use std::ops::{
     Add, Rem, BitXor, BitAnd, Not, Shr
 };
+
+use crate::Sha256;
 
 
 
 /// HashEngine trait
 /// 
 /// Includes methods that all Sha2 hash functions share on a high level.
-/// The generic parameters indicate how many bits each word in the message schedule
-/// and state registers should use as well as the length constraints for the Message.
-pub trait HashEngine<const N: usize> {
+/// Generic paramters
+///     T: u32 or u64 to indicate how many bits each word has
+///     N: The size of the final hash in bytes
+///     M: The size of the message blocks in bytes
+///     K: The amount of words in each message schedule
+pub trait HashEngine<const N: usize, const M: usize>: Pad<M> {
     fn new() -> Self;
     
     /// Input data into the engine.
