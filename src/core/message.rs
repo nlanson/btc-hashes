@@ -8,7 +8,7 @@
 
 use std::convert::TryInto;
 use crate::core::{
-    functions, Primitive
+    functions::SigmaFunctions, Primitive
 };
 
 
@@ -22,7 +22,7 @@ pub trait Pad<const N: usize> {
     /// Pad the input data in multiples of N*8 bits
     fn pad(data: Vec<u8>) -> Message<N> {
         let mut data = data;
-        let len = (data.len() as u64).to_be_bytes();
+        let len = ((data.len()*8) as u64).to_be_bytes();
         data.push(0x80);                             // Append 0x80 (0b10000000) as the single set bit
         while data.len() % N != (N-8) {
             data.push(0x00);                         // Append 0x00 until there is 8 bytes left until the next multiple of N
@@ -55,7 +55,7 @@ impl<const N: usize> Message<N> {
 /// The const generic is used to enforce how many bytes
 /// should be in each message block.
 #[derive(Debug)]
-pub struct MessageBlock<const N: usize>([u8; N]);
+pub struct MessageBlock<const N: usize>(pub [u8; N]);
 
 impl<const N: usize> MessageBlock<N> {
     /// Create message blocks from a message.
@@ -85,7 +85,7 @@ impl<const N: usize> From<&[u8]> for MessageBlock<N> {
 /// contained in the schedule as well as limiting the data stored
 /// in the schedule as 32 bit or 64 bit integers.
 #[derive(Debug)]
-pub struct MessageSchedule<T: Primitive, const N: usize>([Word<T>; N]);
+pub struct MessageSchedule<T: Primitive, const N: usize>(pub [Word<T>; N]);
 
 impl From<MessageBlock<64>> for MessageSchedule<u32, 64> {
     fn from(block: MessageBlock<64>) -> MessageSchedule<u32, 64> {
@@ -94,7 +94,8 @@ impl From<MessageBlock<64>> for MessageSchedule<u32, 64> {
             .chunks(4)
             .into_iter()
             .map(|chunk| {
-                let chunk: [u8; 4] = chunk.try_into().expect("Bad chunk");
+                let mut chunk: [u8; 4] = chunk.try_into().expect("Bad chunk");
+                chunk.reverse();
                 Word::new(unsafe { std::mem::transmute(chunk) })
             })
             .collect();
@@ -102,13 +103,16 @@ impl From<MessageBlock<64>> for MessageSchedule<u32, 64> {
         // Extend the intial schedule to 64 words
         // W[i] = σ1(W[i−2]) + W[i−7] + σ0(W[i−15]) + W[i−16]
         for i in 16..64 {
-            let a = functions::lsigma1(words[i-2].value);
-            let b = words[i-7].value;
-            let c = functions::lsigma0(words[i-15].value);
-            let d = words[i-16].value;
-
-            let nv: u64 = a as u64 + b as u64 + c as u64 + d as u64;
-            words.push(Word::new((nv%2u64.pow(32)) as u32))
+            let value: u32 = (
+                (
+                    u32::lsigma1(words[i-2].value)  as u64 +
+                    words[i-7].value                as u64 +
+                    u32::lsigma0(words[i-15].value) as u64 +
+                    words[i-16].value               as u64
+                ) % 2u64.pow(32)
+            ) as u32;
+            
+            words.push(Word::new(value));
         }
 
         assert_eq!(words.len(), 64);
@@ -123,7 +127,7 @@ impl From<MessageBlock<64>> for MessageSchedule<u32, 64> {
 /// generic constraint for integers is applied.
 #[derive(Copy, Clone, Debug)]
 pub struct Word<T: Primitive> {
-    value: T
+    pub value: T
 }
 
 impl<T: Primitive> Word<T> {
