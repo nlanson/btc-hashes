@@ -2,38 +2,48 @@
 //
 // Where all the core functions sit.
 use crate::core::Primitive;
-use std::ops::{
-    BitAnd, BitXor, Not, Shr
-};
 
 /// Choice
 /// For each bit, if X is set, choose Y else choose Z.
-pub fn choice<T: Primitive + BitAnd<Output = T> + BitXor<Output = T> + Not<Output = T>>(x: T, y: T, z: T) -> T {
+pub fn choice<T: Primitive>(x: T, y: T, z: T) -> T {
     (x&y) ^ (!x&z)
 }
 
 /// Majority
 /// Takes which ever bit is the majority of the three
-pub fn majority<T: Primitive + BitAnd<Output = T> + BitXor<Output = T>>(x: T, y: T, z: T) -> T {
+pub fn majority<T: Primitive>(x: T, y: T, z: T) -> T {
     (x&y) ^ (x&z) ^ (y&z)
 }
 
-/// Uppercase Sigma 0 (Σ0)
-pub fn usigma0<T: Primitive + BitXor<Output = T>>(x: T) -> T {
-    x.rotr(2) ^ x.rotr(13) ^ x.rotr(22)
+pub trait SigmaFunctions<T: Primitive> {
+    /// Uppercase Sigma 0 (Σ0)
+    fn usigma0(x: T) -> T;
+
+    /// Uppercase Sigma 1 (Σ1)
+    fn usigma1(x: T) -> T;
+
+    /// Lowercase Sigma 0 (σ0)
+    fn lsigma0(x: T) -> T;
+
+    /// Lowercase Sigma 1 (σ1)
+    fn lsigma1(x: T) -> T;
 }
 
-/// Uppercase Sigma 1 (Σ1)
-pub fn usigma1<T: Primitive + BitXor<Output = T>>(x: T) -> T {
-    x.rotr(6) ^ x.rotr(11) ^ x.rotr(25)
-}
+/// 32 bit Sigma Functions
+impl SigmaFunctions<u32> for u32 {
+    fn usigma0(x: u32) -> u32 {
+        x.rotr(2) ^ x.rotr(13) ^ x.rotr(22)
+    }
+    
+    fn usigma1(x: u32) -> u32 {
+        x.rotr(6) ^ x.rotr(11) ^ x.rotr(25)
+    }
+    
+    fn lsigma0(x: u32) -> u32 {
+        x.rotr(7) ^ x.rotr(18) ^ (x>>3)
+    }
 
-/// Lowercase Sigma 0 (σ0)
-pub fn lsigma0<T: Primitive + BitXor<Output = T> + Shr<usize, Output = T>>(x: T) -> T {
-    x.rotr(6) ^ x.rotr(11) ^ (x>>3)
-}
-
-/// Lowercase Sigma 1 (σ1)
-pub fn lsigma1<T: Primitive + BitXor<Output = T> + Shr<usize, Output = T>>(x: T) -> T {
-    x.rotr(17) ^ x.rotr(19) ^ (x>>10)
+    fn lsigma1(x: u32) -> u32 {
+        x.rotr(17) ^ x.rotr(19) ^ (x>>10)
+    }
 }
