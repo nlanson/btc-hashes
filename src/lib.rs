@@ -4,24 +4,18 @@
 //  Noah Lanson
 //
 // Todo:
-//   - Data padding tests
-//   - Message block from message tests
-//   - Message schedule creation tests
-//   - Compression functions for each message block
-//   - Apply logic into Sha 224, 384 and 512
-//          > this includes updating the rotational and shift values of the sigma functions
-//            and creating and implementing hash engine struct and traits for the other
-//            functions.
-//   - Look into generalizing the [`HashEngine::hash()`] method.
+//   - SHA-384
 
 // Code modules
 mod core;
 mod constants;
-mod sha256;
 mod sha224;
+mod sha256;
+mod sha512;
 
 
 /// API
 pub use crate::core::HashEngine;
 pub use sha256::Sha256;
 pub use sha224::Sha224;
+pub use sha512::Sha512;

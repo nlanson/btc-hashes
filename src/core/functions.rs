@@ -47,3 +47,21 @@ impl SigmaFunctions<u32> for u32 {
         x.rotr(17) ^ x.rotr(19) ^ (x>>10)
     }
 }
+
+impl SigmaFunctions<u64> for u64 {
+    fn usigma0(x: u64) -> u64 {
+        x.rotr(28) ^ x.rotr(34) ^ x.rotr(39)
+    }
+    
+    fn usigma1(x: u64) -> u64 {
+        x.rotr(14) ^ x.rotr(18) ^ x.rotr(41)
+    }
+    
+    fn lsigma0(x: u64) -> u64 {
+        x.rotr(1) ^ x.rotr(8) ^ (x>>7)
+    }
+
+    fn lsigma1(x: u64) -> u64 {
+        x.rotr(19) ^ x.rotr(61) ^ (x>>6)
+    }
+}

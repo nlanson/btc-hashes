@@ -16,18 +16,28 @@ use crate::core::{
 /// Trait to pad input data into Message Structs.
 /// 
 /// Padding differs from each Sha2 hash function.
-/// The const generic is used to indicate the modulus of the final
-/// message length in bytes.
-pub trait Pad<const N: usize> {
+/// Generics:
+///     N: The message length mod N should be zero
+///     M: The size of the length to be appended at the end of the padding in bytes (8 for 32 bit and 16 for 64 bit)
+pub trait Pad<const N: usize, const M: usize> {
     /// Pad the input data in multiples of N*8 bits
     fn pad(data: Vec<u8>) -> Message<N> {
         let mut data = data;
-        let len = ((data.len()*8) as u64).to_be_bytes();
+        let len = ((data.len()*8) as u128).to_be_bytes();
         data.push(0x80);                             // Append 0x80 (0b10000000) as the single set bit
-        while data.len() % N != (N-8) {
+        while data.len() % N != (N-M) {
             data.push(0x00);                         // Append 0x00 until there is 8 bytes left until the next multiple of N
         }
-        data.extend(len);                       // Append the length of the original data
+
+        data.extend_from_slice(match M {             // Append the length of the original data
+            8 => {
+                &len[M..]                            // If the length is a 64 bit int, use the last 8 bytes of the u128 int.
+            },
+            16 => {
+                &len                                 // If the length is 128 bit int, use the entire thing
+            },
+             _ => panic!("Unexpected length indicator length")
+        });             
 
         Message::new(data)
     }
@@ -36,8 +46,8 @@ pub trait Pad<const N: usize> {
 /// Message struct
 ///
 /// The message is the original data followed by padding.
-/// The const generic is used to enforce the length of the
-/// message to be a multiple of the const.
+/// Generics:
+///     N: The length of the message mod N should be zero.
 #[derive(Debug)]
 pub struct Message<const N: usize>(pub Vec<u8>);
 
@@ -52,8 +62,8 @@ impl<const N: usize> Message<N> {
 /// Message block struct.
 /// 
 /// Message blocks are groups of 512 or 1024 bits.
-/// The const generic is used to enforce how many bytes
-/// should be in each message block.
+/// Generics:
+///     N: The message block must be N bytes long
 #[derive(Debug)]
 pub struct MessageBlock<const N: usize>(pub [u8; N]);
 
@@ -81,14 +91,15 @@ impl<const N: usize> From<&[u8]> for MessageBlock<N> {
 /// Message schedule struct
 /// 
 /// The message schedule is an array of words of lengthg 64 or 80.
-/// The const generics are used to enforce how many words should be
-/// contained in the schedule as well as limiting the data stored
-/// in the schedule as 32 bit or 64 bit integers.
+/// Generics:
+///     T: The integer type being operated on  (u32 or u64)
+///     N: The amount of words in each schedule (64 for 32bit and 80 for 64 bit)
 #[derive(Debug)]
 pub struct MessageSchedule<T: Primitive, const N: usize>(pub [Word<T>; N]);
 
-impl From<MessageBlock<64>> for MessageSchedule<u32, 64> {
-    fn from(block: MessageBlock<64>) -> MessageSchedule<u32, 64> {
+// 32 bit message schedule
+impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u32, W> {
+    fn from(block: MessageBlock<N>) -> MessageSchedule<u32, W> {
         // Create the initial 16 words from the message block
         let mut words: Vec<Word<u32>> = block.0
             .chunks(4)
@@ -115,8 +126,44 @@ impl From<MessageBlock<64>> for MessageSchedule<u32, 64> {
             words.push(Word::new(value));
         }
 
-        assert_eq!(words.len(), 64);
-        let words: [Word<u32>; 64] = words.try_into().expect("Bad words");
+        assert_eq!(words.len(), W);
+        let words: [Word<u32>; W] = words.try_into().expect("Bad words");
+        MessageSchedule(words)
+    }
+}
+
+
+// 64 bit message schedule
+impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u64, W> {
+    fn from(block: MessageBlock<N>) -> MessageSchedule<u64, W> {
+        // Create the initial 16 words from the message block
+        let mut words: Vec<Word<u64>> = block.0
+            .chunks(8)
+            .into_iter()
+            .map(|chunk| {
+                let mut chunk: [u8; 8] = chunk.try_into().expect("Bad chunk");
+                chunk.reverse();
+                Word::new(unsafe { std::mem::transmute(chunk) })
+            })
+            .collect();
+
+        // Extend the intial schedule to 64 words
+        // W[i] = σ1(W[i−2]) + W[i−7] + σ0(W[i−15]) + W[i−16]
+        for i in 16..80 {
+            let value: u64 = (
+                (
+                    u64::lsigma1(words[i-2].value)  as u128 +
+                    words[i-7].value                as u128 +
+                    u64::lsigma0(words[i-15].value) as u128 +
+                    words[i-16].value               as u128
+                ) % 2u128.pow(64)
+            ) as u64;
+            
+            words.push(Word::new(value));
+        }
+
+        assert_eq!(words.len(), W);
+        let words: [Word<u64>; W] = words.try_into().expect("Bad words");
         MessageSchedule(words)
     }
 }
