@@ -9,7 +9,10 @@ use crate::{
             MessageBlock,
             MessageSchedule
         },
-        state::{State, Compression}
+        state::{
+            State,
+            Compression
+        }
     },
     constants::{
         SHA256_INITIAL_CONSTANTS,
@@ -18,48 +21,7 @@ use crate::{
 };
 use std::convert::TryInto;
 
-const SHA256_DIGEST_SIZE: usize = 32;
-const SHA256_BLOCK_SIZE: usize = 64;
-
-pub struct Sha256 {
-    input: Vec<u8>
-}
-
-impl HashEngine<SHA256_DIGEST_SIZE, SHA256_BLOCK_SIZE> for Sha256 {
-    fn new() -> Self {
-        Sha256 {
-            input: vec![]
-        }
-    }
-
-    fn input(&mut self, data: &[u8]) {
-        self.input.extend_from_slice(data);
-    }
-
-    fn read_input(self) -> Vec<u8> {
-        self.input
-    }
-
-    fn hash(self) -> [u8; SHA256_DIGEST_SIZE] {
-        let input = self.read_input();
-        let message: Message<SHA256_BLOCK_SIZE> = Self::pad(input);
-        let blocks: Vec<MessageBlock<SHA256_BLOCK_SIZE>> = MessageBlock::from_message(message);
-        let mut state = State::new(SHA256_INITIAL_CONSTANTS);
-        for block in blocks {
-            let schedule: MessageSchedule<u32, SHA256_BLOCK_SIZE> = MessageSchedule::from(block);
-            state.compute_schedule(schedule, SHA256_ROUND_CONSTANTS);
-        }
-
-        let state = &state.read()[0..SHA256_DIGEST_SIZE/4];
-        let mut digest = vec![];
-        for i in 0..state.len() {
-            digest.extend(state[i].to_be_bytes());
-        }
-        digest.try_into().expect("Bad digest")
-    }
-}
-
-impl Pad<SHA256_BLOCK_SIZE> for Sha256 { }
+crate::core::hash_function!(Sha256, u32, 32, 8, 64, 64, 0, SHA256_INITIAL_CONSTANTS, SHA256_ROUND_CONSTANTS);
 
 #[cfg(test)]
 mod tests {
