@@ -25,7 +25,8 @@ pub trait HashEngine<T: Primitive, const D: usize, const S: usize, const L: usiz
     fn new() -> Self;
     
     /// Input data into the engine.
-    fn input(&mut self, data: &[u8]);
+    fn input<I>(&mut self, data: I)
+    where I: AsRef<[u8]>;
 
     /// Read the data inputted into the engine
     fn read_input(self) -> Vec<u8>;
@@ -73,8 +74,10 @@ macro_rules! hash_function {
                 }
             }
 
-            fn input(&mut self, data: &[u8]) {
-                self.input.extend_from_slice(data);
+            fn input<I>(&mut self, data: I)
+            where I: AsRef<[u8]>
+            {
+                self.input.extend_from_slice(data.as_ref());
             }
 
             fn read_input(self) -> Vec<u8> {
