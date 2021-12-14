@@ -4,20 +4,21 @@
 //  Noah Lanson
 //
 // Todo:
-// 
+//    - Possibly extend the scope of this library to cover all Bitcoin hashes.
+//      This includes:
+//          RIPEMD-160
+//          HMAC functions
+//          PBKDF2
 
 // Code modules
 mod core;
 mod constants;
-mod sha224;
-mod sha256;
-mod sha384;
-mod sha512;
+mod sha2;
 
 
 /// API
 pub use crate::core::HashEngine;
-pub use sha224::Sha224;
-pub use sha256::Sha256;
-pub use sha384::Sha384;
-pub use sha512::Sha512;
+pub use sha2::Sha224;
+pub use sha2::Sha256;
+pub use sha2::Sha384;
+pub use sha2::Sha512;
