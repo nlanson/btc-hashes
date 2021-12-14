@@ -22,12 +22,17 @@ impl<T: Primitive+SigmaFunctions<T>> State<T> {
     }
 }
 
+/// Compression trait
+/// Generics:
+///     A: The algorithm
+///     T: The integer type being operated on
+///     N: Schedule length
 pub trait Compression<T: Primitive, const N: usize> {
     /// Process a message schedule, completing N rounds of compression.
     fn compress(&mut self, schedule: MessageSchedule<T, N>, k: [T; N]);
 }
 
-//32 bit compression
+// 32 bit SHA2 compression
 impl Compression<u32, 64> for State<u32> {
     fn compress(&mut self, schedule: MessageSchedule<u32, 64>, k: [u32; 64]) {
         // read the state
@@ -86,7 +91,7 @@ impl Compression<u32, 64> for State<u32> {
     }
 }
 
-//64 bit compression
+// 64 bit SHA2 compression
 impl Compression<u64, 80> for State<u64> {
     fn compress(&mut self, schedule: MessageSchedule<u64, 80>, k: [u64; 80]) {
         // read the state
