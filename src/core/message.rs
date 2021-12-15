@@ -12,37 +12,6 @@ use crate::core::{
 };
 
 
-
-/// Trait to pad input data into Message Structs.
-/// 
-/// Padding differs from each Sha2 hash function.
-/// Generics:
-///     N: The message length mod N should be zero
-///     M: The size of the length to be appended at the end of the padding in bytes (8 for 32 bit and 16 for 64 bit)
-pub trait Pad<const N: usize, const M: usize> {
-    /// Pad the input data in multiples of N*8 bits
-    fn pad(data: Vec<u8>) -> Message<N> {
-        let mut data = data;
-        let len = ((data.len()*8) as u128).to_be_bytes();
-        data.push(0x80);                             // Append 0x80 (0b10000000) as the single set bit
-        while data.len() % N != (N-M) {
-            data.push(0x00);                         // Append 0x00 until there is 8 bytes left until the next multiple of N
-        }
-
-        data.extend_from_slice(match M {             // Append the length of the original data
-            8 => {
-                &len[M..]                            // If the length is a 64 bit int, use the last 8 bytes of the u128 int.
-            },
-            16 => {
-                &len                                 // If the length is 128 bit int, use the entire thing
-            },
-             _ => panic!("Unexpected length indicator length")
-        });             
-
-        Message::new(data)
-    }
-}
-
 /// Message struct
 ///
 /// The message is the original data followed by padding.

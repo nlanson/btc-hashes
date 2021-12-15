@@ -10,11 +10,7 @@
 //          HMAC functions
 //          PBKDF2
 //  
-//    - Use the new HashEngine trait (with no generics) to implement hash functions.
-//      This means the existing SHA2 functions need to be migrated to the new trait
-//      and using macros where there is shared code.
-//      This helps with generalizing hash functions (SHA2 vs RIPEMD) when implementing
-//      HMAC and PBKDF2.
+//    - Reduce duplicate code in SHA2 module.
 
 // Code modules
 mod core;

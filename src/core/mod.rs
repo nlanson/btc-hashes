@@ -6,37 +6,41 @@
 
 pub mod message;
 pub mod functions;
-pub mod state;
-use message::Pad;
 use std::ops::{
     Add, Rem, BitXor, BitAnd, Not, Shr
 };
 
-/// HashEngine trait
-/// 
-/// Includes methods that all Sha2 hash functions share on a high level.
-/// Generic paramters
-///     T: u32 or u64 to indicate how many bits each word has
-///     D: The size of the final hash in bytes
-///     S: The size of the message blocks in bytes,
-///     L: Bits reserved for length extention attacks when padding
-///     W: The amount of words in each message schedule,
-pub trait HashEngine<T: Primitive, const D: usize, const S: usize, const L: usize, const W: usize>: Pad<S, L> {    
+
+pub trait HashEngine {
+    type Digest;
+    const BLOCKSIZE: usize;
+
     fn new() -> Self;
-    
-    /// Input data into the engine.
-    fn input<I>(&mut self, data: I)
-    where I: AsRef<[u8]>;
 
-    /// Read the data inputted into the engine
-    fn read_input(self) -> Vec<u8>;
+    /// Takes in new inputs
+    fn input<I>(&mut self, data: I) where I: AsRef<[u8]>;
 
-    fn round_constants() -> [T; W];
+    fn hash(self) -> Self::Digest;
+}
 
-    fn initial_constants() -> [T; 8];
+pub struct State<T: Copy> {
+    registers: [T; 8]
+}
 
-    /// Complete the hash with the inputted data.
-    fn hash(self) -> [u8; D];
+impl<T: Copy> State<T> {
+    pub fn init(constants: [T; 8]) -> State<T> {
+        State {
+            registers: constants
+        }
+    }
+
+    pub fn read(&self) -> [T; 8] {
+        self.registers
+    }
+
+    pub fn update(&mut self, new_state: [T; 8]) {
+        self.registers = new_state;
+    }
 }
 
 
@@ -74,41 +78,5 @@ impl Primitive for u64{
 
     fn to_bytes(&self) -> Vec<u8> {
         self.to_be_bytes().to_vec()
-    }
-}
-
-
-// REWORK
-
-
-pub trait HashEngine2 {
-    type Digest;
-    const BLOCKSIZE: usize;
-
-    fn new() -> Self;
-
-    /// Takes in new inputs
-    fn input<I>(&mut self, data: I) where I: AsRef<[u8]>;
-
-    fn hash(self) -> Self::Digest;
-}
-
-pub struct State<T: Copy> {
-    registers: [T; 8]
-}
-
-impl<T: Copy> State<T> {
-    pub fn init(constants: [T; 8]) -> State<T> {
-        State {
-            registers: constants
-        }
-    }
-
-    pub fn read(&self) -> [T; 8] {
-        self.registers
-    }
-
-    pub fn update(&mut self, new_state: [T; 8]) {
-        self.registers = new_state;
     }
 }
