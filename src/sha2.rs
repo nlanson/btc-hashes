@@ -2,7 +2,7 @@
 //
 use crate::{
     core::{
-        HashEngine,
+        HashEngine as CoreHashEngine,
         message::{
             Pad,
             Message,
@@ -21,7 +21,9 @@ use crate::{
         SHA512_INITIAL_CONSTANTS,
         SHA256_ROUND_CONSTANTS,
         SHA512_ROUND_CONSTANTS
-    }
+    },
+    core::State as State2,
+    core::functions::*
 };
 use std::convert::TryInto;
 
@@ -53,7 +55,8 @@ macro_rules! hash_function {
             input: Vec<u8>
         }
 
-        impl HashEngine<$bits, $digest_size, $block_size, $pad_size, $schedule_length> for $name {
+        impl CoreHashEngine<$bits, $digest_size, $block_size, $pad_size, $schedule_length> for $name {
+            
             fn new() -> Self {
                 $name {
                     input: vec![]
@@ -108,9 +111,129 @@ hash_function!(Sha256, u32, 32, 8, 64, 64, 0, SHA256_INITIAL_CONSTANTS, SHA256_R
 hash_function!(Sha384, u64, 48, 16, 128, 80, 2, SHA384_INITIAL_CONSTANTS, SHA512_ROUND_CONSTANTS);
 hash_function!(Sha512, u64, 64, 16, 128, 80, 0, SHA512_INITIAL_CONSTANTS, SHA512_ROUND_CONSTANTS);
 
+
+// REWORK
+use crate::core::HashEngine2;
+
+macro_rules! sha2_compression {
+    ($schedule_length: expr, $base: ty, $extended: ty, $modulo: expr) => {
+        fn process_block(state: &mut State2<$base>, block: MessageBlock<{Self::BLOCKSIZE}>) {
+            let schedule: MessageSchedule<$base, $schedule_length> = MessageSchedule::from(block);
+            let _state = state.read();
+            let mut a = _state[0];
+            let mut b = _state[1];
+            let mut c = _state[2];
+            let mut d = _state[3];
+            let mut e = _state[4];
+            let mut f = _state[5];
+            let mut g = _state[6];
+            let mut h = _state[7];
+            
+            for i in 0..schedule.0.len() {
+                let t1: $base = (
+                    (
+                        <$base>::usigma1(e) as $extended +
+                        choice(e, f, g) as $extended +
+                        h as $extended +
+                        SHA256_ROUND_CONSTANTS[i] as $extended +
+                        schedule.0[i].value as $extended
+                    ) %(2 as $extended).pow($modulo)
+                )as $base;
+    
+                let t2: $base = (
+                    (
+                        <$base>::usigma0(a) as $extended +
+                        majority(a, b, c) as $extended
+                    ) % (2 as $extended).pow($modulo)
+                )as $base;
+                
+                h = g;
+                g = f;
+                f = e;
+                e = d;
+                d = c;
+                c = b;
+                b = a;
+                a = ((t1 as $extended + t2 as $extended) % (2 as $extended).pow($modulo)) as $base;
+                e = ((e as $extended + t1 as $extended) % (2 as $extended).pow($modulo)) as $base;
+    
+            }  
+            
+            // update the state
+            let new_state: [$base; 8] = [
+                ((_state[0] as $extended + a as $extended)%(2 as $extended).pow($modulo)) as $base,
+                ((_state[1] as $extended + b as $extended)%(2 as $extended).pow($modulo)) as $base,
+                ((_state[2] as $extended + c as $extended)%(2 as $extended).pow($modulo)) as $base,
+                ((_state[3] as $extended + d as $extended)%(2 as $extended).pow($modulo)) as $base,
+                ((_state[4] as $extended + e as $extended)%(2 as $extended).pow($modulo)) as $base,
+                ((_state[5] as $extended + f as $extended)%(2 as $extended).pow($modulo)) as $base,
+                ((_state[6] as $extended + g as $extended)%(2 as $extended).pow($modulo)) as $base,
+                ((_state[7] as $extended + h as $extended)%(2 as $extended).pow($modulo)) as $base
+            ];
+    
+            state.update(new_state);
+        }
+    };
+}
+
+pub struct Sha256n {
+    input: Vec<u8>
+}
+
+const SHA256_BLOCKSIZE: usize = 64;
+
+impl Sha256n {
+    fn pad_input(&self) -> Vec<u8> {
+        let mut data = self.input.clone();
+        let length: u64 = (data.len()*8) as u64;
+        data.push(0x80);
+        while data.len() % SHA256_BLOCKSIZE != SHA256_BLOCKSIZE-8 {
+            data.push(0x00);
+        }
+        data.extend(length.to_be_bytes());
+        data
+    }
+
+    sha2_compression!(64, u32, u64, 32);
+}
+
+impl HashEngine2 for Sha256n {
+    type Digest = [u8; 32];
+    const BLOCKSIZE: usize = SHA256_BLOCKSIZE;
+
+    fn new() -> Self {
+        Self {
+            input: vec![]
+        }
+    }
+
+    fn input<I>(&mut self, data: I)
+    where I: AsRef<[u8]> {
+        self.input.extend_from_slice(data.as_ref())
+    }
+
+    fn hash(self) -> Self::Digest {
+        let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
+        let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
+        let mut state: State2<u32> = State2::init(SHA256_INITIAL_CONSTANTS);
+        for block in blocks {
+            Self::process_block(&mut state, block);
+        }
+
+        let mut digest = vec![];
+        for h in state.read() {
+            digest.extend(h.to_be_bytes());
+        }
+        digest.try_into().expect("Bad state")
+    }
+}
+
+
+
 #[cfg(test)]
 mod tests {
-    use super::{HashEngine, Sha224, Sha256, Sha384, Sha512};
+    use super::{CoreHashEngine, Sha224, Sha256, Sha384, Sha512};
+    use super::{HashEngine2, Sha256n};
 
     #[test]
     fn sha224() {
@@ -146,10 +269,17 @@ mod tests {
         
         
         for case in cases {
-            let mut hasher = Sha256::new();
+            // let mut hasher = Sha256::new();
+            // hasher.input(&case.0);
+            // let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
+            // assert_eq!(digest, case.1);
+
+            //reworked hasher
+            let mut hasher = Sha256n::new();
             hasher.input(&case.0);
             let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
             assert_eq!(digest, case.1);
+
         }
     }
 

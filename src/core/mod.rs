@@ -12,7 +12,6 @@ use std::ops::{
     Add, Rem, BitXor, BitAnd, Not, Shr
 };
 
-
 /// HashEngine trait
 /// 
 /// Includes methods that all Sha2 hash functions share on a high level.
@@ -22,7 +21,7 @@ use std::ops::{
 ///     S: The size of the message blocks in bytes,
 ///     L: Bits reserved for length extention attacks when padding
 ///     W: The amount of words in each message schedule,
-pub trait HashEngine<T: Primitive, const D: usize, const S: usize, const L: usize, const W: usize>: Pad<S, L> {
+pub trait HashEngine<T: Primitive, const D: usize, const S: usize, const L: usize, const W: usize>: Pad<S, L> {    
     fn new() -> Self;
     
     /// Input data into the engine.
@@ -75,5 +74,41 @@ impl Primitive for u64{
 
     fn to_bytes(&self) -> Vec<u8> {
         self.to_be_bytes().to_vec()
+    }
+}
+
+
+// REWORK
+
+
+pub trait HashEngine2 {
+    type Digest;
+    const BLOCKSIZE: usize;
+
+    fn new() -> Self;
+
+    /// Takes in new inputs
+    fn input<I>(&mut self, data: I) where I: AsRef<[u8]>;
+
+    fn hash(self) -> Self::Digest;
+}
+
+pub struct State<T: Copy> {
+    registers: [T; 8]
+}
+
+impl<T: Copy> State<T> {
+    pub fn init(constants: [T; 8]) -> State<T> {
+        State {
+            registers: constants
+        }
+    }
+
+    pub fn read(&self) -> [T; 8] {
+        self.registers
+    }
+
+    pub fn update(&mut self, new_state: [T; 8]) {
+        self.registers = new_state;
     }
 }
