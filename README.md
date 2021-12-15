@@ -1,22 +1,19 @@
-# Rust Secure Hash Algorithm 2
-A pure Rust implementation of the SHA2 hash function family
+# Bitcoin Hashes
+A pure Rust implementation of hash functions and cryptographic computations used in Bitcoin.
 
 ## Installation
 Add the following under `[dependencies]` in your `Cargo.toml`:
 ```
-sha2 = { git = "https://github.com/nlanson/sha2" }
+btc-hashes = { git = "https://github.com/nlanson/btc-hashes" }
 ```
 
 ## Usage
 ```rust
-   // ...
-   use sha2::{Sha224, Sha256, HashEngine};
-   // ...
+   use btc-hashes::{
+      HashEngine, Sha256
+   }
    
-   let mut hash_engine = Sha256::new();
-   hash_engine.input(<data as a slice of bytes>);
-   let digest = hash_engine.hash();
+   let mut engine = Sha256::new();
+   engine.input(<data as a slice of bytes>);
+   let digest = engine.hash();
 ```
-
-
-
