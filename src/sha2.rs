@@ -52,6 +52,14 @@ macro_rules! default_function {
     }
 }
 
+macro_rules! reset_engine {
+    () => {
+        fn reset(&mut self) {
+            self.input = vec![]
+        }
+    };
+}
+
 macro_rules! input_padding {
     ($length_ty: ty, $blocksize: expr) => {
         fn pad_input(&self) -> Vec<u8> {
@@ -163,8 +171,9 @@ impl HashEngine for Sha224 {
 
     default_function!();
     input_function!();
+    reset_engine!();
 
-    fn hash(self) -> Self::Digest {
+    fn hash(&self) -> Self::Digest {
         let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
         let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
         let mut state: State2<u32> = State2::init(SHA224_INITIAL_CONSTANTS);
@@ -187,8 +196,9 @@ impl HashEngine for Sha256 {
 
     default_function!();
     input_function!();
+    reset_engine!();
 
-    fn hash(self) -> Self::Digest {
+    fn hash(&self) -> Self::Digest {
         let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
         let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
         let mut state: State2<u32> = State2::init(SHA256_INITIAL_CONSTANTS);
@@ -211,8 +221,9 @@ impl HashEngine for Sha384 {
 
     default_function!();
     input_function!();
+    reset_engine!();
     
-    fn hash(self) -> Self::Digest {
+    fn hash(&self) -> Self::Digest {
         let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
         let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
         let mut state: State2<u64> = State2::init(SHA384_INITIAL_CONSTANTS);
@@ -235,8 +246,9 @@ impl HashEngine for Sha512 {
 
     default_function!();
     input_function!();
+    reset_engine!();
     
-    fn hash(self) -> Self::Digest {
+    fn hash(&self) -> Self::Digest {
         let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
         let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
         let mut state: State2<u64> = State2::init(SHA512_INITIAL_CONSTANTS);

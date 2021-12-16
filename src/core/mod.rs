@@ -12,7 +12,7 @@ use std::ops::{
 
 
 pub trait HashEngine {
-    type Digest;
+    type Digest: Into<Vec<u8>>;
     const BLOCKSIZE: usize;
 
     fn new() -> Self;
@@ -20,7 +20,9 @@ pub trait HashEngine {
     /// Takes in new inputs
     fn input<I>(&mut self, data: I) where I: AsRef<[u8]>;
 
-    fn hash(self) -> Self::Digest;
+    fn reset(&mut self);
+
+    fn hash(&self) -> Self::Digest;
 }
 
 pub struct State<T: Copy> {
