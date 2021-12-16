@@ -4,11 +4,10 @@
 //  Noah Lanson
 //
 // Todo:
-//    - Extend the scope of this library to cover all Bitcoin hashes.
-//      This includes:
-//          RIPEMD-160
-//          HMAC functions
-//          PBKDF2
+//    - Write
+//        RIPEMD-160
+//        PBKDF2
+//        HMAC test cases
 //  
 //    - Reduce duplicate code in SHA2 module.
 
@@ -16,6 +15,7 @@
 mod core;
 mod constants;
 mod sha2;
+mod hmac;
 
 
 /// API
