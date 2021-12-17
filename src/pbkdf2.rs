@@ -39,13 +39,18 @@ impl<T: KeyBasedHashEngine> PBKDF2<T> {
         }
 
         while u.len() != 1 {
-            let xor: Vec<u8> = u[0]
+            let xor: Result<_, _> = u[0]
                         .into_iter()
                         .zip(u[1].into_iter())
                         .map(|(x, y)| x^y)
-                        .collect();
-
-            u[0] = match xor.try_into() {
+                        .collect::<Vec<u8>>()
+                        .try_into();
+                        
+            // For some stupid reason, I cannot call .expect() after converting Vec<u8> into T::Digest using try_into()
+            // Spent a while looking for a solution but the closest I came to was a stale github issue on the Rust compiler
+            // repository.
+            // Calling expect() just looks nicer than having a ugly match block so it does not matter.
+            u[0] = match xor {
                 Ok(x) => x,
                 _ => panic!("bad xor")
             };
