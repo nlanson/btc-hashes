@@ -1,4 +1,4 @@
-use crate::core::HashEngine;
+use crate::core::{HashEngine, KeyBasedHashEngine};
 use std::marker::PhantomData;
 
 
@@ -11,10 +11,9 @@ pub struct Hmac<T: HashEngine> {
 const OPAD: u8 = 0x5c;
 const IPAD: u8 = 0x36;
 
-impl<T: HashEngine> Hmac<T> {
+impl<T: HashEngine> KeyBasedHashEngine for Hmac<T> {
     /// Add data to be used as the key
-    #[allow(dead_code)]
-    pub fn key<I>(&mut self, data: I)
+    fn key<I>(&mut self, data: I)
     where I: AsRef<[u8]> {
         self.key.extend(data.as_ref())
     }

@@ -7,7 +7,7 @@
 //    - Write
 //        RIPEMD-160
 //        PBKDF2
-//        HMAC test cases
+//        HMAC test cases (https://datatracker.ietf.org/doc/html/rfc4231#section-4)
 //  
 //    - Reduce duplicate code in SHA2 module.
 
@@ -16,6 +16,7 @@ mod core;
 mod constants;
 mod sha2;
 mod hmac;
+mod pbkdf2;
 
 
 /// API
@@ -24,3 +25,5 @@ pub use sha2::Sha224;
 pub use sha2::Sha256;
 pub use sha2::Sha384;
 pub use sha2::Sha512;
+pub use hmac::Hmac;
+pub use pbkdf2::PBKDF2;

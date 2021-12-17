@@ -9,10 +9,10 @@ pub mod functions;
 use std::ops::{
     Add, Rem, BitXor, BitAnd, Not, Shr
 };
-
+use std::convert::TryFrom;
 
 pub trait HashEngine {
-    type Digest: Into<Vec<u8>>;
+    type Digest: Into<Vec<u8>> + IntoIterator<Item=u8> + TryFrom<Vec<u8>> + AsRef<[u8]> + Copy;
     const BLOCKSIZE: usize;
 
     fn new() -> Self;
@@ -23,6 +23,10 @@ pub trait HashEngine {
     fn reset(&mut self);
 
     fn hash(&self) -> Self::Digest;
+}
+
+pub trait KeyBasedHashEngine: HashEngine {
+    fn key<I>(&mut self, key: I) where I: AsRef<[u8]>;
 }
 
 pub struct State<T: Copy> {
