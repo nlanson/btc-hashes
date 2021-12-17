@@ -1,5 +1,8 @@
-use crate::core::{KeyBasedHashEngine, HashEngine};
-use std::{marker::PhantomData, convert::TryInto};
+use crate::{ HashEngine, KeyBasedHashEngine };
+use std::{
+    marker::PhantomData,
+    convert::TryInto
+};
 
 pub struct PBKDF2<T: HashEngine> {
     hash: PhantomData<T>,
