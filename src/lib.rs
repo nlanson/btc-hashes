@@ -21,6 +21,7 @@ mod pbkdf2;
 
 /// API
 pub use crate::core::HashEngine;
+pub use crate::core::KeyBasedHashEngine;
 pub use sha2::Sha224;
 pub use sha2::Sha256;
 pub use sha2::Sha384;
