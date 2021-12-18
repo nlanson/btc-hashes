@@ -14,6 +14,7 @@
 mod core;
 mod constants;
 mod sha2;
+mod ripemd;
 mod hmac;
 mod pbkdf2;
 

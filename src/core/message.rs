@@ -82,7 +82,7 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
 
         // Extend the intial schedule to 64 words
         // W[i] = σ1(W[i−2]) + W[i−7] + σ0(W[i−15]) + W[i−16]
-        for i in 16..64 {
+        for i in 16..W {
             let value: u32 = (
                 (
                     u32::lsigma1(words[i-2].value)  as u64 +
@@ -118,7 +118,7 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
 
         // Extend the intial schedule to 64 words
         // W[i] = σ1(W[i−2]) + W[i−7] + σ0(W[i−15]) + W[i−16]
-        for i in 16..80 {
+        for i in 16..W {
             let value: u64 = (
                 (
                     u64::lsigma1(words[i-2].value)  as u128 +
