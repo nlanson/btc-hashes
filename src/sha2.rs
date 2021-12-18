@@ -1,4 +1,4 @@
-// The SHA224 module is where the SHA224 hash function is implemented.
+// The SHA2 module is where the SHA2 hash function family is implemented
 //
 use crate::{
     core::{
@@ -6,7 +6,14 @@ use crate::{
             Message,
             MessageBlock,
             MessageSchedule
-        }
+        },
+        HashEngine,
+        State,
+        functions::*,
+        basic_hash_struct,
+        default_function,
+        input_function,
+        reset_engine
     },
     constants::{
         SHA224_INITIAL_CONSTANTS,
@@ -16,51 +23,14 @@ use crate::{
         SHA256_ROUND_CONSTANTS,
         SHA512_ROUND_CONSTANTS
     },
-    core::State as State2,
-    core::functions::*
+    
 };
 use std::convert::TryInto;
 
 
-// REWORK
-use crate::core::HashEngine;
 
-macro_rules! basic_hash_struct {
-    ($name: ident) => {
-        pub struct $name {
-            input: Vec<u8>
-        }
-    };
-}
-
-macro_rules! input_function {
-    () => {
-        fn input<I>(&mut self, data: I)
-        where I: AsRef<[u8]> {
-            self.input.extend_from_slice(data.as_ref())
-        }
-    };
-}
-
-macro_rules! default_function {
-    () => {
-        fn new() -> Self {
-            Self {
-                input: vec![]
-            }
-        }
-    }
-}
-
-macro_rules! reset_engine {
-    () => {
-        fn reset(&mut self) {
-            self.input = vec![]
-        }
-    };
-}
-
-macro_rules! input_padding {
+/// Macro to pad SHA2 hash engine inputs according to each hash function.
+macro_rules! sha2_input_padding {
     ($length_ty: ty, $blocksize: expr) => {
         fn pad_input(&self) -> Vec<u8> {
             let mut data = self.input.clone();
@@ -75,9 +45,10 @@ macro_rules! input_padding {
     };
 }
 
+/// Macro to run the SHA2 compression accordingly for each hash function
 macro_rules! sha2_compression {
     ($constants: expr, $schedule_length: expr, $base: ty, $extended: ty, $modulo: expr) => {
-        fn process_block(state: &mut State2<$base>, block: MessageBlock<{Self::BLOCKSIZE}>) {
+        fn process_block(state: &mut State<$base>, block: MessageBlock<{Self::BLOCKSIZE}>) {
             let schedule: MessageSchedule<$base, $schedule_length> = MessageSchedule::from(block);
             let _state = state.read();
             let mut a = _state[0];
@@ -145,23 +116,23 @@ basic_hash_struct!(Sha512);    const SHA512_BLOCKSIZE: usize = 128;
 
 
 impl Sha224 {
-    input_padding!(u64, SHA256_BLOCKSIZE);
+    sha2_input_padding!(u64, SHA256_BLOCKSIZE);
     sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32, u64, 32);
 }
 
 
 impl Sha256 {
-    input_padding!(u64, SHA256_BLOCKSIZE);
+    sha2_input_padding!(u64, SHA256_BLOCKSIZE);
     sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32, u64, 32);
 }
 
 impl Sha384 {
-    input_padding!(u128, SHA512_BLOCKSIZE);
+    sha2_input_padding!(u128, SHA512_BLOCKSIZE);
     sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64, u128, 64);
 }
 
 impl Sha512 {
-    input_padding!(u128, SHA512_BLOCKSIZE);
+    sha2_input_padding!(u128, SHA512_BLOCKSIZE);
     sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64, u128, 64);
 }
 
@@ -176,7 +147,7 @@ impl HashEngine for Sha224 {
     fn hash(&self) -> Self::Digest {
         let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
         let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-        let mut state: State2<u32> = State2::init(SHA224_INITIAL_CONSTANTS);
+        let mut state: State<u32> = State::init(SHA224_INITIAL_CONSTANTS);
         for block in blocks {
             Self::process_block(&mut state, block);
         }
@@ -201,7 +172,7 @@ impl HashEngine for Sha256 {
     fn hash(&self) -> Self::Digest {
         let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
         let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-        let mut state: State2<u32> = State2::init(SHA256_INITIAL_CONSTANTS);
+        let mut state: State<u32> = State::init(SHA256_INITIAL_CONSTANTS);
         for block in blocks {
             Self::process_block(&mut state, block);
         }
@@ -226,7 +197,7 @@ impl HashEngine for Sha384 {
     fn hash(&self) -> Self::Digest {
         let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
         let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-        let mut state: State2<u64> = State2::init(SHA384_INITIAL_CONSTANTS);
+        let mut state: State<u64> = State::init(SHA384_INITIAL_CONSTANTS);
         for block in blocks {
             Self::process_block(&mut state, block);
         }
@@ -251,7 +222,7 @@ impl HashEngine for Sha512 {
     fn hash(&self) -> Self::Digest {
         let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
         let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-        let mut state: State2<u64> = State2::init(SHA512_INITIAL_CONSTANTS);
+        let mut state: State<u64> = State::init(SHA512_INITIAL_CONSTANTS);
         for block in blocks {
             Self::process_block(&mut state, block);
         }

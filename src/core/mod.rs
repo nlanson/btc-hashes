@@ -49,8 +49,49 @@ impl<T: Copy> State<T> {
     }
 }
 
+macro_rules! basic_hash_struct {
+    ($name: ident) => {
+        pub struct $name {
+            input: Vec<u8>
+        }
+    };
+}
+
+macro_rules! input_function {
+    () => {
+        fn input<I>(&mut self, data: I)
+        where I: AsRef<[u8]> {
+            self.input.extend_from_slice(data.as_ref())
+        }
+    };
+}
+
+macro_rules! default_function {
+    () => {
+        fn new() -> Self {
+            Self {
+                input: vec![]
+            }
+        }
+    }
+}
+
+macro_rules! reset_engine {
+    () => {
+        fn reset(&mut self) {
+            self.input = vec![]
+        }
+    };
+}
+
+pub(crate) use basic_hash_struct;
+pub(crate) use input_function;
+pub(crate) use default_function;
+pub(crate) use reset_engine;
 
 
+
+/// Primitive trait
 pub trait Primitive:
     Into<u128> + 
     From<u32> + 
