@@ -9,7 +9,7 @@ use crate::{
         },
         HashEngine,
         State,
-        functions::*,
+        functions::sha2::*,
         basic_hash_struct,
         default_function,
         input_function,

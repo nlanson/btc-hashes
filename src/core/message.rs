@@ -8,7 +8,8 @@
 
 use std::convert::TryInto;
 use crate::core::{
-    functions::SigmaFunctions, Primitive
+    functions::sha2::SigmaFunctions,
+    Primitive
 };
 
 
@@ -82,6 +83,7 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
 
         // Extend the intial schedule to 64 words
         // W[i] = σ1(W[i−2]) + W[i−7] + σ0(W[i−15]) + W[i−16]
+        // This loop is only entered when computing a SHA224 or SHA256 schedule.
         for i in 16..W {
             let value: u32 = (
                 (
@@ -118,6 +120,7 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
 
         // Extend the intial schedule to 64 words
         // W[i] = σ1(W[i−2]) + W[i−7] + σ0(W[i−15]) + W[i−16]
+        // This loop is only entered when computing a SHA384 or SHA512 schedule.
         for i in 16..W {
             let value: u64 = (
                 (
