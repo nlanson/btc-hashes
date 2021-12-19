@@ -9,6 +9,8 @@
 //        HMAC test cases (https://datatracker.ietf.org/doc/html/rfc4231#section-4)
 //  
 //    - Reduce duplicate code in SHA2 module.
+//
+//    - Implement midstate extraction and starting a hash from a given midstate and data.
 
 // Code modules
 mod core;
