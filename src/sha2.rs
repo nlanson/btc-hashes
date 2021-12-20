@@ -151,7 +151,7 @@ macro_rules! impl_hash_engine_sha2 {
                     .rev()
                     .collect::<Vec<u8>>()
                     .try_into()
-                    .expect("Bad digest")  
+                    .expect("Bad digest")
             }
         }
     };

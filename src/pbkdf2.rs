@@ -100,7 +100,7 @@ impl<T: KeyBasedHashEngine> HashEngine for PBKDF2<T> {
 mod tests {
     use super::*;
     use crate::{
-        HashEngine, Hmac, Sha512
+        HashEngine, Hmac, Sha512, Sha384
     };
 
     #[test]
@@ -132,5 +132,16 @@ mod tests {
         e.iter(4096);
         let digest = e.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
         assert_eq!(digest, "8c0511f4c6e597c6ac6315d8f0362e225f3c501495ba23b868c005174dc4ee71115b59f9e60cd9532fa33e0f75aefe30225c583a186cd82bd4daea9724a3d3b8");
+    }
+
+    #[test]
+    #[ignore]
+    // great test to run for speed benching
+    fn pbkdf2_speed_test() {
+        let mut e = PBKDF2::<Hmac<Sha384>>::new();
+        e.input(b"password");
+        e.input(b"salt");
+        e.iter(69420);
+        e.hash();
     }
 }
