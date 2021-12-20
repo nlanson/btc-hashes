@@ -107,19 +107,57 @@ macro_rules! sha2_compression {
     };
 }
 
+#[allow(unused_macros)]
+macro_rules! impl_hash_engine_sha2 {
+    (
+        $name: ident, $digest_size: expr, $blocksize: expr, $word_ty: ty, $consts: expr
+    ) => {
+        impl HashEngine for $name {
+            type Digest = [u8; $digest_size];
+            const BLOCKSIZE: usize = $blocksize;
+
+            default_function!();
+            input_function!();
+            reset_engine!();
+
+            fn hash(&self) -> Self::Digest {
+                let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
+                let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
+                let mut state: State<$word_ty, 8> = State::init($consts);
+                for block in blocks {
+                    Self::process_block(&mut state, block);
+                }
+
+                state.read()
+                    .iter()
+                    .flat_map( |reg|
+                        reg.to_be_bytes()
+                    )
+                    .collect::<Vec<u8>>()[..$digest_size]
+                    .try_into()
+                    .expect("Bad digest")
+            }
+        }
+    };
+}
+
 // Define the four SHA2 Hash functions and their block size
 basic_hash_struct!(Sha224);
 basic_hash_struct!(Sha256);    const SHA256_BLOCKSIZE: usize = 64;
 basic_hash_struct!(Sha384);
 basic_hash_struct!(Sha512);    const SHA512_BLOCKSIZE: usize = 128;
 
+// Implement the hash engine trait for the SHA2 hash functions
+impl_hash_engine_sha2!(Sha224, 28, SHA256_BLOCKSIZE, u32, SHA224_INITIAL_CONSTANTS);
+impl_hash_engine_sha2!(Sha256, 32, SHA256_BLOCKSIZE, u32, SHA256_INITIAL_CONSTANTS);
+impl_hash_engine_sha2!(Sha384, 48, SHA512_BLOCKSIZE, u64, SHA384_INITIAL_CONSTANTS);
+impl_hash_engine_sha2!(Sha512, 64, SHA512_BLOCKSIZE, u64, SHA512_INITIAL_CONSTANTS);
 
 
 impl Sha224 {
     sha2_input_padding!(u64, SHA256_BLOCKSIZE);
     sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32, u64, 32);
 }
-
 
 impl Sha256 {
     sha2_input_padding!(u64, SHA256_BLOCKSIZE);
@@ -134,105 +172,6 @@ impl Sha384 {
 impl Sha512 {
     sha2_input_padding!(u128, SHA512_BLOCKSIZE);
     sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64, u128, 64);
-}
-
-impl HashEngine for Sha224 {
-    type Digest = [u8; 28];
-    const BLOCKSIZE: usize = SHA256_BLOCKSIZE;
-
-    default_function!();
-    input_function!();
-    reset_engine!();
-
-    fn hash(&self) -> Self::Digest {
-        let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
-        let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-        let mut state: State<u32, 8> = State::init(SHA224_INITIAL_CONSTANTS);
-        for block in blocks {
-            Self::process_block(&mut state, block);
-        }
-
-        let mut digest = vec![];
-        for h in state.read() {
-            digest.extend(h.to_be_bytes());
-        }
-
-        digest[..28].try_into().expect("Bad State")
-    }
-}
-
-impl HashEngine for Sha256 {
-    type Digest = [u8; 32];
-    const BLOCKSIZE: usize = SHA256_BLOCKSIZE;
-
-    default_function!();
-    input_function!();
-    reset_engine!();
-
-    fn hash(&self) -> Self::Digest {
-        let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
-        let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-        let mut state: State<u32, 8> = State::init(SHA256_INITIAL_CONSTANTS);
-        for block in blocks {
-            Self::process_block(&mut state, block);
-        }
-
-        let mut digest = vec![];
-        for h in state.read() {
-            digest.extend(h.to_be_bytes());
-        }
-
-        digest.try_into().expect("Bad state")
-    }
-}
-
-impl HashEngine for Sha384 {
-    type Digest = [u8; 48];
-    const BLOCKSIZE: usize = SHA512_BLOCKSIZE;
-
-    default_function!();
-    input_function!();
-    reset_engine!();
-    
-    fn hash(&self) -> Self::Digest {
-        let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
-        let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-        let mut state: State<u64, 8> = State::init(SHA384_INITIAL_CONSTANTS);
-        for block in blocks {
-            Self::process_block(&mut state, block);
-        }
-
-        let mut digest = vec![];
-        for h in state.read() {
-            digest.extend(h.to_be_bytes());
-        }
-
-        digest[..48].try_into().expect("Bad State")
-    }
-}
-
-impl HashEngine for Sha512 {
-    type Digest = [u8; 64];
-    const BLOCKSIZE: usize = SHA512_BLOCKSIZE;
-
-    default_function!();
-    input_function!();
-    reset_engine!();
-    
-    fn hash(&self) -> Self::Digest {
-        let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
-        let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-        let mut state: State<u64, 8> = State::init(SHA512_INITIAL_CONSTANTS);
-        for block in blocks {
-            Self::process_block(&mut state, block);
-        }
-
-        let mut digest = vec![];
-        for h in state.read() {
-            digest.extend(h.to_be_bytes());
-        }
-        digest.try_into().expect("Bad state")
-    }
 }
 
 
@@ -254,12 +193,6 @@ mod tests {
         
         
         for case in cases {
-            // let mut hasher = Sha224::new();
-            // hasher.input(&case.0);
-            // let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
-            // assert_eq!(digest, case.1);
-
-            //reworked hasher
             let mut hasher = Sha224::new();
             hasher.input(&case.0);
             let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
@@ -283,12 +216,6 @@ mod tests {
         
         
         for case in cases {
-            // let mut hasher = Sha256::new();
-            // hasher.input(&case.0);
-            // let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
-            // assert_eq!(digest, case.1);
-
-            //reworked hasher
             let mut hasher = Sha256::new();
             hasher.input(&case.0);
             let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
@@ -308,12 +235,6 @@ mod tests {
         
         
         for case in cases {
-            // let mut hasher = Sha384::new();
-            // hasher.input(&case.0);
-            // let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
-            // assert_eq!(digest, case.1);
-
-            //reworked hasher
             let mut hasher = Sha384::new();
             hasher.input(&case.0);
             let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
@@ -332,12 +253,6 @@ mod tests {
         
         
         for case in cases {
-            // let mut hasher = Sha512::new();
-            // hasher.input(&case.0);
-            // let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
-            // assert_eq!(digest, case.1);
-
-            //reworked hasher
             let mut hasher = Sha512::new();
             hasher.input(&case.0);
             let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
