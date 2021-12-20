@@ -29,22 +29,22 @@ pub trait KeyBasedHashEngine: HashEngine {
     fn key<I>(&mut self, key: I) where I: AsRef<[u8]>;
 }
 
-pub struct State<T: Copy> {
-    registers: [T; 8]
+pub struct State<T: Copy, const N: usize> {
+    registers: [T; N]
 }
 
-impl<T: Copy> State<T> {
-    pub fn init(constants: [T; 8]) -> State<T> {
+impl<T: Copy, const N: usize> State<T, N> {
+    pub fn init(constants: [T; N]) -> State<T, N> {
         State {
             registers: constants
         }
     }
 
-    pub fn read(&self) -> [T; 8] {
+    pub fn read(&self) -> [T; N] {
         self.registers
     }
 
-    pub fn update(&mut self, new_state: [T; 8]) {
+    pub fn update(&mut self, new_state: [T; N]) {
         self.registers = new_state;
     }
 }
