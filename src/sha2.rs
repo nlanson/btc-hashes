@@ -128,14 +128,30 @@ macro_rules! impl_hash_engine_sha2 {
                     Self::process_block(&mut state, block);
                 }
 
+                // Collecting  the required state by omitting unused state registers
+                // This is done by reversing the state, skipping required bytes,     *(Skip value = (state bytes - digest bytes) / word bytes)
+                // concatenating each word in little endian then reversing the little
+                // endian collection again.
+                //
+                // This is more efficient than the previous method of converting
+                // every word in the state into bytes then excluding unused bytes
+                // because unused words are not converted in the first place.
+                //      let mut digest = vec![];
+                //      for h in state.read() {
+                //          digest.extend(h.to_be_bytes());
+                //      }
+                //      digest[..$digest_size].try_into().expect("Bad State")
                 state.read()
                     .iter()
+                    .rev()
+                    .skip(((state.read().len() * <$word_ty>::BITS as usize/8) - $digest_size) / (<$word_ty>::BITS/8) as usize)
                     .flat_map( |reg|
-                        reg.to_be_bytes()
+                        reg.to_le_bytes()
                     )
-                    .collect::<Vec<u8>>()[..$digest_size]
+                    .rev()
+                    .collect::<Vec<u8>>()
                     .try_into()
-                    .expect("Bad digest")
+                    .expect("Bad digest")  
             }
         }
     };
