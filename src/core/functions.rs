@@ -1,6 +1,4 @@
 // Core functions module.
-//
-// Where all the core functions sit.
 use crate::core::Primitive;
 
 pub mod sha2 {
@@ -71,5 +69,23 @@ pub mod sha2 {
 }
 
 pub mod ripemd160 {
+    pub fn f(x: u32, y: u32, z: u32) -> u32 {
+        x ^ y ^ z
+    }
+
+    pub fn g(x: u32, y: u32, z: u32) -> u32 {
+        (x & y) | (!x & z)
+    }
     
+    pub fn h(x: u32, y: u32, z: u32) -> u32 {
+        (x | !y) ^ z
+    }
+    
+    pub fn i(x: u32, y: u32, z: u32) -> u32 {
+        (x & z) | (y & !z) 
+    }
+
+    pub fn j(x: u32, y: u32, z: u32) -> u32 {
+        x ^ (y | !z)
+    }
 }
