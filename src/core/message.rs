@@ -74,15 +74,10 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
         let mut words: Vec<Word<u32>> = block.0
             .chunks(4)
             .into_iter()
-            .map(|chunk| { //Edited to support RIPEMD160. Need to revert for SHA2
-                //ripemd160 word creation (little endian)
-                let chunk: [u8; 4] = chunk.try_into().expect("Bad chunk");
+            .map(|chunk| { //Words are big endian.
+                let mut chunk: [u8; 4] = chunk.try_into().expect("Bad chunk");
+                chunk.reverse();
                 Word::new(unsafe { std::mem::transmute(chunk) })
-
-                //sha2 word creation
-                // let mut chunk: [u8; 4] = chunk.try_into().expect("Bad chunk");
-                // chunk.reverse();
-                // Word::new(unsafe { std::mem::transmute(chunk) })
             })
             .collect();
 
@@ -142,6 +137,16 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
         assert_eq!(words.len(), W);
         let words: [Word<u64>; W] = words.try_into().expect("Bad words");
         MessageSchedule(words)
+    }
+}
+
+impl<const N: usize> MessageSchedule<u32, N> {
+    /// Reverse the endian ness for each word in the schedule.
+    /// Used in RIPEMD160
+    pub fn reverse_words(&mut self) {        
+        for word in self.0.iter_mut() {
+            *word = Word::new(word.value.swap_bytes());
+        }
     }
 }
 

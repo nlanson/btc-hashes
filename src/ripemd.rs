@@ -64,7 +64,9 @@ impl HashEngine for Ripemd160 {
         let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
         let mut mdbuf: State<u32, 5> = State::init(RIPEMD160_INITIAL_CONSTANTS);
         for block in blocks {
-            let words: [Word<u32>; 16] = MessageSchedule::from(block).0;
+            let mut schedule: MessageSchedule<u32, 16> = MessageSchedule::from(block);
+            schedule.reverse_words(); //RIPEMD160 words are little endian
+            let words = schedule.0;
             let buffer = mdbuf.read();
             let (mut aa, mut bb, mut cc, mut dd, mut ee) = (buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
             let (mut aaa, mut bbb, mut ccc, mut ddd, mut eee) = (buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
@@ -178,10 +180,23 @@ mod tests {
 
     #[test]
     fn ripemd160() {
-        let mut e = Ripemd160::new();
-        e.input(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
-        let digest = e.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
-        println!("{}", digest);
-        assert_eq!(digest, "b0e20b6e3116640286ed3a87a5713079b21f5189");
+        let cases: Vec<(Vec<u8>, &str)> = vec![
+            (vec![], "9c1185a5c5e9fc54612808977ee8f548b2258d31"),
+            (b"a".to_vec(), "0bdc9d2d256b3ee9daae347be6f4dc835a467ffe"),
+            (b"abc".to_vec(), "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc"),
+            (b"message digest".to_vec(), "5d0689ef49d2fae572b881b123a85ffa21595f36"),
+            (b"abcdefghijklmnopqrstuvwxyz".to_vec(), "f71c27109c692c1b56bbdceb5b9d2865b3708dbc"),
+            (b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq".to_vec(), "12a053384a9c0c88e405a06c27dcf49ada62eb2b"),
+            (b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".to_vec(), "b0e20b6e3116640286ed3a87a5713079b21f5189"),
+            (b"12345678901234567890123456789012345678901234567890123456789012345678901234567890".to_vec(), "9b752e45573d4b39f4dbd3323cab82bf63326bfb")
+        ];
+        
+        
+        for case in cases {
+            let mut hasher = Ripemd160::new();
+            hasher.input(&case.0);
+            let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
+            assert_eq!(digest, case.1);
+        }
     }
 }
