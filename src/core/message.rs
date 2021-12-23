@@ -74,10 +74,15 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
         let mut words: Vec<Word<u32>> = block.0
             .chunks(4)
             .into_iter()
-            .map(|chunk| {
-                let mut chunk: [u8; 4] = chunk.try_into().expect("Bad chunk");
-                chunk.reverse();
+            .map(|chunk| { //Edited to support RIPEMD160. Need to revert for SHA2
+                //ripemd160 word creation (little endian)
+                let chunk: [u8; 4] = chunk.try_into().expect("Bad chunk");
                 Word::new(unsafe { std::mem::transmute(chunk) })
+
+                //sha2 word creation
+                // let mut chunk: [u8; 4] = chunk.try_into().expect("Bad chunk");
+                // chunk.reverse();
+                // Word::new(unsafe { std::mem::transmute(chunk) })
             })
             .collect();
 
