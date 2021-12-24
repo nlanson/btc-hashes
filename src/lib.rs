@@ -40,5 +40,6 @@ pub use sha2::Sha224;
 pub use sha2::Sha256;
 pub use sha2::Sha384;
 pub use sha2::Sha512;
+pub use ripemd::Ripemd160;
 pub use hmac::Hmac;
 pub use pbkdf2::PBKDF2;
