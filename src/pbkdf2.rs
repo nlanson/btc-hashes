@@ -87,7 +87,7 @@ impl<T: KeyBasedHashEngine> HashEngine for PBKDF2<T> {
         self.iter = 1;
     }
 
-    fn hash(&self) -> Self::Digest {
+    fn hash(&mut self) -> Self::Digest {
         // DK = T1 + T2 + ⋯ + Tdklen/hlen
         // Ti = F(Password, Salt, c, i)
         // Since dklen and hlen are the same for Bitcoin, only one round of F() needs to be run.

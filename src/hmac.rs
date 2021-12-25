@@ -42,7 +42,7 @@ impl<T: HashEngine> HashEngine for Hmac<T> {
         self.message.extend(data.as_ref())
     }
 
-    fn hash(&self) -> Self::Digest {
+    fn hash(&mut self) -> Self::Digest {
         let mut key = self.key.clone();
         if key.len() > Self::BLOCKSIZE {
             let mut e = T::new();

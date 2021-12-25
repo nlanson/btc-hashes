@@ -25,7 +25,7 @@ use crate::{
     },
     
 };
-use std::convert::TryInto;
+use std::{convert::TryInto, mem::size_of};
 
 
 
@@ -120,7 +120,7 @@ macro_rules! impl_hash_engine_sha2 {
             input_function!();
             reset_engine!();
 
-            fn hash(&self) -> Self::Digest {
+            fn hash(&mut self) -> Self::Digest {
                 let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
                 let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
                 let mut state: State<$word_ty, 8> = State::init($consts);
@@ -192,11 +192,93 @@ impl Sha512 {
 
 
 
+//midstate extractable hash struct
+pub struct Sha256m {
+    buffer: Vec<u8>,
+    length: u64,
+    state: State<u32, 8>
+}
+
+impl HashEngine for Sha256m {
+    type Digest = [u8; 32];
+    const BLOCKSIZE: usize = 64;
+
+    fn new() -> Self {
+        Self {
+            buffer: vec![],
+            length: 0,
+            state: State::init(SHA256_INITIAL_CONSTANTS)
+        }
+    }
+
+    fn input<I>(&mut self, data: I)
+    where I: AsRef<[u8]> {
+        self.buffer.extend(data.as_ref());
+        self.length += (data.as_ref().len() * 8) as u64;
+        while self.buffer.len() >= Self::BLOCKSIZE {
+            let message: Message<{Self::BLOCKSIZE}> = Message::new(self.buffer[..Self::BLOCKSIZE].to_vec());
+            let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
+            assert_eq!(blocks.len(), 0);
+            Self::process_block(&mut self.state, blocks[0]);
+            self.buffer = self.buffer.split_off(Self::BLOCKSIZE);
+        }
+    }
+
+    fn reset(&mut self) {
+        self.buffer = vec![];
+        self.length = 0;
+        self.state = State::init(SHA256_INITIAL_CONSTANTS)
+    }
+
+    fn hash(&mut self) -> Self::Digest {
+        // need to check if there will be one of two "final" blocks.
+        // eg. If the buffer is 57 bytes, it cannot fit the 0x80 byte
+        //     and the length
+        // this code works when the buffer is less than 56 bytes
+        // what the code needs to do is check if the message end byte
+        // and length bits can fit and if not, split the message into
+        // two blocks.
+
+        
+        
+        //create the final block using padding
+        assert!(self.buffer.len() <= Self::BLOCKSIZE);
+        let mut final_block: Vec<u8> = Vec::with_capacity(self.buffer.len());
+        final_block.extend_from_slice(&self.buffer);
+        final_block.reserve(Self::BLOCKSIZE - self.buffer.len());
+        self.buffer.clear();
+        final_block.push(0x80);
+        while final_block.len()%Self::BLOCKSIZE != Self::BLOCKSIZE-size_of::<u64>() {
+            final_block.push(0x00);
+        }
+        final_block.extend(self.length.to_be_bytes());
+        assert_eq!(final_block.len(), Self::BLOCKSIZE);
+
+        // process the final data
+        let message: Message<{Self::BLOCKSIZE}> = Message::new(final_block);
+        let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
+        assert_eq!(blocks.len(), 1);
+        Self::process_block(&mut self.state, blocks[0]);
+
+        // extract state and return
+        let mut digest = vec![];
+        for h in self.state.read() {
+            digest.extend(h.to_be_bytes());
+        }
+        digest[..32].try_into().expect("Bad State")
+    }
+}
+
+impl Sha256m {
+    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32, u64, 32);
+}
+
 
 
 #[cfg(test)]
 mod tests {
     use super::{HashEngine, Sha224, Sha256, Sha384, Sha512};
+    use super::Sha256m;
 
     #[test]
     fn sha224() {
@@ -220,6 +302,7 @@ mod tests {
     fn sha256() {
         let cases: Vec<(Vec<u8>, &str)> = vec![
             (vec![0x61, 0x62, 0x63], "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
+            (b"0000000000000000000000000000000000000000000000000000000".to_vec(), "9f8ef876f51f5313c91cc3f6b8119af09d8bbdd72098fa149b2780eb3591d6be"),
             (vec![
                 0x61 ,0x62, 0x63, 0x64, 0x62, 0x63, 0x64, 0x65, 0x63, 0x64, 0x65, 0x66, 0x64, 0x65, 0x66, 0x67, 0x65, 0x66, 0x67, 0x68, 0x66, 0x67, 0x68, 0x69, 0x67,
                 0x68, 0x69, 0x6a, 0x68, 0x69, 0x6a, 0x6b, 0x69, 0x6a, 0x6b, 0x6c, 0x6a, 0x6b, 0x6c, 0x6d, 0x6b, 0x6c, 0x6d, 0x6e, 0x6c, 0x6d, 0x6e, 0x6f, 0x6d, 0x6e,
@@ -232,7 +315,7 @@ mod tests {
         
         
         for case in cases {
-            let mut hasher = Sha256::new();
+            let mut hasher = Sha256m::new();
             hasher.input(&case.0);
             let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
             assert_eq!(digest, case.1);

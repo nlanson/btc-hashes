@@ -34,7 +34,7 @@ impl<const N: usize> Message<N> {
 /// Message blocks are groups of 512 or 1024 bits.
 /// Generics:
 ///     N: The message block must be N bytes long
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct MessageBlock<const N: usize>(pub [u8; N]);
 
 impl<const N: usize> MessageBlock<N> {

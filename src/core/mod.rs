@@ -22,7 +22,7 @@ pub trait HashEngine {
 
     fn reset(&mut self);
 
-    fn hash(&self) -> Self::Digest;
+    fn hash(&mut self) -> Self::Digest;
 }
 
 pub trait KeyBasedHashEngine: HashEngine {
