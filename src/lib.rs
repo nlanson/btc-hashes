@@ -6,11 +6,6 @@
 // Todo:
 //    - Write
 //        HMAC test cases (https://datatracker.ietf.org/doc/html/rfc4231#section-4)
-//  
-//    - RipeMD160
-//          > Need to update MessageSchedule to accomadate for little-endian words and big-endian words
-//            since sha2 uses big-endian words and ripemd160 uses little endian words.
-//          > Unit tests
 //
 //    - Implement midstate extraction and starting a hash from a given midstate and data.
 //          > This will change the order of how the hash engine hashes inputted data.

@@ -107,7 +107,7 @@ macro_rules! sha2_compression {
     };
 }
 
-#[allow(unused_macros)]
+
 macro_rules! impl_hash_engine_sha2 {
     (
         $name: ident, $digest_size: expr, $blocksize: expr, $word_ty: ty, $consts: expr
