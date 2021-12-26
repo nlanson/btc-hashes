@@ -129,3 +129,23 @@ impl Primitive for u64{
         self.to_be_bytes().to_vec()
     }
 }
+
+
+// temporary hash engine trait to use while rewriting hash functions that implement the old hash engine trait.
+pub trait HashEngine2 {
+    type Digest: Into<Vec<u8>> + IntoIterator<Item=u8> + TryFrom<Vec<u8>> + AsRef<[u8]> + Copy;
+    type Midsate;
+    const BLOCKSIZE: usize;
+
+    fn new() -> Self;
+
+    fn input<I>(&mut self, data: I) where I: AsRef<[u8]>;
+
+    fn reset(&mut self);
+
+    fn midstate(&self) -> Self::Midsate;
+
+    fn from_midstate(&mut self, midstate: Self::Midsate);
+
+    fn finalise(&mut self) -> Self::Digest;
+}

@@ -11,6 +11,8 @@
 //        > Starting from a given midstate
 //        > Extracting midstate
 //        > Write as macro and implement for other hash functions
+//
+//
 
 
 // Code modules
