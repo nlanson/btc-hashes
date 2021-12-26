@@ -40,6 +40,8 @@ impl<T: Copy, const N: usize> State<T, N> {
         }
     }
 
+    /// Reads the state as the data type it is stored in.
+    /// u32 or u64 in the case of SHA2 or RIPEMD
     pub fn read(&self) -> [T; N] {
         self.registers
     }

@@ -25,7 +25,10 @@ use crate::{
     },
     
 };
-use std::{convert::TryInto, mem::size_of};
+use std::{
+    convert::TryInto,
+    mem::size_of_val
+};
 
 
 
@@ -216,9 +219,8 @@ impl HashEngine for Sha256m {
         self.buffer.extend(data.as_ref());
         self.length += (data.as_ref().len() * 8) as u64;
         while self.buffer.len() >= Self::BLOCKSIZE {
-            let message: Message<{Self::BLOCKSIZE}> = Message::new(self.buffer[..Self::BLOCKSIZE].to_vec());
-            let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-            assert_eq!(blocks.len(), 0);
+            let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(Message::new(self.buffer[..Self::BLOCKSIZE].to_vec()));
+            assert_eq!(blocks.len(), 1);
             Self::process_block(&mut self.state, blocks[0]);
             self.buffer = self.buffer.split_off(Self::BLOCKSIZE);
         }
@@ -231,34 +233,29 @@ impl HashEngine for Sha256m {
     }
 
     fn hash(&mut self) -> Self::Digest {
-        // need to check if there will be one of two "final" blocks.
-        // eg. If the buffer is 57 bytes, it cannot fit the 0x80 byte
-        //     and the length
-        // this code works when the buffer is less than 56 bytes
-        // what the code needs to do is check if the message end byte
-        // and length bits can fit and if not, split the message into
-        // two blocks.
+        assert!(self.buffer.len() <= Self::BLOCKSIZE); // check the buffer is less than or equal to one block size.
 
-        
-        
-        //create the final block using padding
-        assert!(self.buffer.len() <= Self::BLOCKSIZE);
-        let mut final_block: Vec<u8> = Vec::with_capacity(self.buffer.len());
-        final_block.extend_from_slice(&self.buffer);
-        final_block.reserve(Self::BLOCKSIZE - self.buffer.len());
-        self.buffer.clear();
-        final_block.push(0x80);
-        while final_block.len()%Self::BLOCKSIZE != Self::BLOCKSIZE-size_of::<u64>() {
-            final_block.push(0x00);
+        // set capacity of the final message vector to 1 or 2 blocks depending on buffer length
+        let fmsg_cap = if self.buffer.len() + size_of_val(&self.length) + 1 >= Self::BLOCKSIZE {
+            Self::BLOCKSIZE*2
+        } else {
+            Self::BLOCKSIZE
+        };
+        let mut fmsg_data: Vec<u8> = Vec::with_capacity(fmsg_cap);
+        fmsg_data.extend_from_slice(&self.buffer);
+        fmsg_data.push(0x80); // append single '1' bit
+        while fmsg_data.len()%Self::BLOCKSIZE != Self::BLOCKSIZE-size_of_val(&self.length) {
+            fmsg_data.push(0x00); // pad with zeroes
         }
-        final_block.extend(self.length.to_be_bytes());
-        assert_eq!(final_block.len(), Self::BLOCKSIZE);
+        fmsg_data.extend(self.length.to_be_bytes()); // append original data length
+        assert_eq!(fmsg_data.len()%Self::BLOCKSIZE, 0);   // check the padded data mod blocksize is zero
 
-        // process the final data
-        let message: Message<{Self::BLOCKSIZE}> = Message::new(final_block);
-        let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-        assert_eq!(blocks.len(), 1);
-        Self::process_block(&mut self.state, blocks[0]);
+        // process each block
+        let fblocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(Message::new(fmsg_data));
+        assert!(fblocks.len() <= 2);
+        for fblock in fblocks {
+            Self::process_block(&mut self.state, fblock);
+        }
 
         // extract state and return
         let mut digest = vec![];

@@ -8,15 +8,9 @@
 //        HMAC test cases (https://datatracker.ietf.org/doc/html/rfc4231#section-4)
 //
 //    - Implement midstate extraction and starting a hash from a given midstate and data.
-//          > This will change the order of how the hash engine hashes inputted data.
-//            In order to extract midstate, the hash engine will need to hash data as it
-//            is inputted. Upon input, if there is enough data to create a block, the block
-//            is created and then processed. The result of the processed block in the state
-//            is the midstate.
-//            When the hash is to be finished, the hash engine will process the final block
-//            which consists of any remaining data + padding + length bits.
-//            This can make hashing things that contain the same starting data much more efficient
-//            by allowing the custom specification of midstate data. (eg TapLeaf hashes)
+//        > Starting from a given midstate
+//        > Extracting midstate
+//        > Write as macro and implement for other hash functions
 
 
 // Code modules
