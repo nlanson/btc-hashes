@@ -1,3 +1,20 @@
+// HMAC Function Module
+//
+//
+//  Todo:
+//    - Implement midstate for HMAC by conceptually splitting the single engine into
+//      two engines. The definition for a hmac function can be generalised as 
+//              HMAC(K, m) = H((K' ^ opad) || H(K'^ipad || m))
+//                  where K is the key
+//                        m is the message
+//                        H is the hash function
+//                        ipad is a blocksized byte array of 0x36
+//                        opad is a blocksized byte array of 0x5c
+//
+//      The function can be split into two hash engines, both with their own midstate
+//      because there are two hash functions. The inner and the outer.
+
+
 use crate::core::{HashEngine, KeyBasedHashEngine};
 use std::marker::PhantomData;
 
