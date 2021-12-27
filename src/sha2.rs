@@ -50,7 +50,7 @@ macro_rules! sha2_input_padding {
 
 /// Macro to run the SHA2 compression accordingly for each hash function
 macro_rules! sha2_compression {
-    ($constants: expr, $schedule_length: expr, $base: ty, $extended: ty, $modulo: expr) => {
+    ($constants: expr, $schedule_length: expr, $base: ty) => {
         fn process_block(state: &mut State<$base, 8>, block: MessageBlock<{Self::BLOCKSIZE}>) {
             let schedule: MessageSchedule<$base, $schedule_length> = MessageSchedule::from(block);
             let _state = state.read();
@@ -64,22 +64,14 @@ macro_rules! sha2_compression {
             let mut h = _state[7];
             
             for i in 0..$schedule_length {
-                let t1: $base = (
-                    (
-                        <$base>::usigma1(e) as $extended +
-                        choice(e, f, g) as $extended +
-                        h as $extended +
-                        $constants[i] as $extended +
-                        schedule.0[i].value as $extended
-                    ) %(2 as $extended).pow($modulo)
-                ) as $base;
-    
-                let t2: $base = (
-                    (
-                        <$base>::usigma0(a) as $extended +
-                        majority(a, b, c) as $extended
-                    ) % (2 as $extended).pow($modulo)
-                ) as $base;
+                let t1: $base = <$base>::usigma1(e)
+                    .wrapping_add(choice(e, f, g))
+                    .wrapping_add(h)
+                    .wrapping_add($constants[i])
+                    .wrapping_add(schedule.0[i].value);
+                
+                let t2: $base = <$base>::usigma0(a)
+                    .wrapping_add(majority(a, b, c));
                 
                 h = g;
                 g = f;
@@ -88,26 +80,26 @@ macro_rules! sha2_compression {
                 d = c;
                 c = b;
                 b = a;
-                a = ((t1 as $extended + t2 as $extended) % (2 as $extended).pow($modulo)) as $base;
-                e = ((e as $extended + t1 as $extended) % (2 as $extended).pow($modulo)) as $base;
+                a = t1.wrapping_add(t2);
+                e = e.wrapping_add(t1);
     
             }  
             
             // update the state
             let new_state: [$base; 8] = [
-                ((_state[0] as $extended + a as $extended)%(2 as $extended).pow($modulo)) as $base,
-                ((_state[1] as $extended + b as $extended)%(2 as $extended).pow($modulo)) as $base,
-                ((_state[2] as $extended + c as $extended)%(2 as $extended).pow($modulo)) as $base,
-                ((_state[3] as $extended + d as $extended)%(2 as $extended).pow($modulo)) as $base,
-                ((_state[4] as $extended + e as $extended)%(2 as $extended).pow($modulo)) as $base,
-                ((_state[5] as $extended + f as $extended)%(2 as $extended).pow($modulo)) as $base,
-                ((_state[6] as $extended + g as $extended)%(2 as $extended).pow($modulo)) as $base,
-                ((_state[7] as $extended + h as $extended)%(2 as $extended).pow($modulo)) as $base
+                _state[0].wrapping_add(a),
+                _state[1].wrapping_add(b),
+                _state[2].wrapping_add(c),
+                _state[3].wrapping_add(d),
+                _state[4].wrapping_add(e),
+                _state[5].wrapping_add(f),
+                _state[6].wrapping_add(g),
+                _state[7].wrapping_add(h)
             ];
     
             state.update(new_state);
         }
-    };
+    }
 }
 
 
@@ -175,22 +167,22 @@ impl_hash_engine_sha2!(Sha512, 64, SHA512_BLOCKSIZE, u64, SHA512_INITIAL_CONSTAN
 
 impl Sha224 {
     sha2_input_padding!(u64, SHA256_BLOCKSIZE);
-    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32, u64, 32);
+    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32);
 }
 
 impl Sha256 {
     sha2_input_padding!(u64, SHA256_BLOCKSIZE);
-    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32, u64, 32);
+    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32);
 }
 
 impl Sha384 {
     sha2_input_padding!(u128, SHA512_BLOCKSIZE);
-    sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64, u128, 64);
+    sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64);
 }
 
 impl Sha512 {
     sha2_input_padding!(u128, SHA512_BLOCKSIZE);
-    sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64, u128, 64);
+    sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64);
 }
 
 
@@ -311,7 +303,7 @@ macro_rules! sha2_pad_fbuffer {
 }
 
 impl Sha256m {
-    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32, u64, 32);
+    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32);
     sha2_pad_fbuffer!();
 }
 
