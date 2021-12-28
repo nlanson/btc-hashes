@@ -10,10 +10,10 @@ use crate::{
         HashEngine,
         State,
         functions::sha2::*,
-        basic_hash_struct,
-        default_function,
-        input_function,
-        reset_engine
+        hash_struct,
+        iconst_funcs,
+        midstate_funcs,
+        input_func
     },
     constants::{
         SHA224_INITIAL_CONSTANTS,
@@ -29,24 +29,6 @@ use std::{
     convert::TryInto,
     mem::size_of_val
 };
-
-
-
-/// Macro to pad SHA2 hash engine inputs according to each hash function.
-macro_rules! sha2_input_padding {
-    ($length_ty: ty, $blocksize: expr) => {
-        fn pad_input(&self) -> Vec<u8> {
-            let mut data = self.input.clone();
-            let length: $length_ty = (data.len()*8) as $length_ty;
-            data.push(0x80);
-            while data.len() % $blocksize != $blocksize-((<$length_ty>::BITS/8)as usize) {
-                data.push(0x00);
-            }
-            data.extend(length.to_be_bytes());
-            data
-        }
-    };
-}
 
 /// Macro to run the SHA2 compression accordingly for each hash function
 macro_rules! sha2_compression {
@@ -102,187 +84,10 @@ macro_rules! sha2_compression {
     }
 }
 
-
-macro_rules! impl_hash_engine_sha2 {
-    (
-        $name: ident, $digest_size: expr, $blocksize: expr, $word_ty: ty, $consts: expr
-    ) => {
-        impl HashEngine for $name {
-            type Digest = [u8; $digest_size];
-            const BLOCKSIZE: usize = $blocksize;
-
-            default_function!();
-            input_function!();
-            reset_engine!();
-
-            fn hash(&mut self) -> Self::Digest {
-                let message: Message<{Self::BLOCKSIZE}> = Message::new(self.pad_input());
-                let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(message);
-                let mut state: State<$word_ty, 8> = State::init($consts);
-                for block in blocks {
-                    Self::process_block(&mut state, block);
-                }
-
-                // Collecting  the required state by omitting unused state registers
-                // This is done by reversing the state, skipping required bytes,     *(Skip value = (state bytes - digest bytes) / word bytes)
-                // concatenating each word in little endian then reversing the little
-                // endian collection again.
-                //
-                // This is more efficient than the previous method of converting
-                // every word in the state into bytes then excluding unused bytes
-                // because unused words are not converted in the first place.
-                //      let mut digest = vec![];
-                //      for h in state.read() {
-                //          digest.extend(h.to_be_bytes());
-                //      }
-                //      digest[..$digest_size].try_into().expect("Bad State")
-                state.read()
-                    .iter()
-                    .rev()
-                    .skip(((state.read().len() * <$word_ty>::BITS as usize/8) - $digest_size) / (<$word_ty>::BITS/8) as usize)
-                    .flat_map( |reg|
-                        reg.to_le_bytes()
-                    )
-                    .rev()
-                    .collect::<Vec<u8>>()
-                    .try_into()
-                    .expect("Bad digest")
-            }
-        }
-    };
-}
-
-// Define the four SHA2 Hash functions and their block size
-basic_hash_struct!(Sha224);
-basic_hash_struct!(Sha256);    const SHA256_BLOCKSIZE: usize = 64;
-basic_hash_struct!(Sha384);
-basic_hash_struct!(Sha512);    const SHA512_BLOCKSIZE: usize = 128;
-
-// Implement the hash engine trait for the SHA2 hash functions
-impl_hash_engine_sha2!(Sha224, 28, SHA256_BLOCKSIZE, u32, SHA224_INITIAL_CONSTANTS);
-impl_hash_engine_sha2!(Sha256, 32, SHA256_BLOCKSIZE, u32, SHA256_INITIAL_CONSTANTS);
-impl_hash_engine_sha2!(Sha384, 48, SHA512_BLOCKSIZE, u64, SHA384_INITIAL_CONSTANTS);
-impl_hash_engine_sha2!(Sha512, 64, SHA512_BLOCKSIZE, u64, SHA512_INITIAL_CONSTANTS);
-
-
-impl Sha224 {
-    sha2_input_padding!(u64, SHA256_BLOCKSIZE);
-    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32);
-}
-
-impl Sha256 {
-    sha2_input_padding!(u64, SHA256_BLOCKSIZE);
-    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32);
-}
-
-impl Sha384 {
-    sha2_input_padding!(u128, SHA512_BLOCKSIZE);
-    sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64);
-}
-
-impl Sha512 {
-    sha2_input_padding!(u128, SHA512_BLOCKSIZE);
-    sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64);
-}
-
-
-
-//midstate extractable hash struct
-//
-//  things to macro up:
-//      - input
-//      - new struct
-//      - blanket implementations (new, reset)
-//      - midstate extraction and setting
-//      - hash finalisation
-
-use crate::core::HashEngine2;
-pub struct Sha256m {
-    buffer: Vec<u8>,
-    length: u64,
-    state: State<u32, 8>
-}
-
-impl HashEngine2 for Sha256m {
-    type Digest = [u8; 32];
-    type Midsate = [u8; 32];
-    const BLOCKSIZE: usize = 64;
-
-    fn new() -> Self {
-        Self {
-            buffer: vec![],
-            length: 0,
-            state: State::init(SHA256_INITIAL_CONSTANTS)
-        }
-    }
-
-    fn input<I>(&mut self, data: I)
-    where I: AsRef<[u8]> {
-        self.buffer.extend(data.as_ref());
-        self.length += (data.as_ref().len() * 8) as u64;
-        while self.buffer.len() >= Self::BLOCKSIZE {
-            let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(Message::new(self.buffer[..Self::BLOCKSIZE].to_vec()));
-            assert_eq!(blocks.len(), 1);
-            Self::process_block(&mut self.state, blocks[0]);
-            self.buffer = self.buffer.split_off(Self::BLOCKSIZE);
-        }
-    }
-
-    fn reset(&mut self) {
-        self.buffer = vec![];
-        self.length = 0;
-        self.state = State::init(SHA256_INITIAL_CONSTANTS)
-    }
-
-    fn midstate(&self) -> Self::Midsate {
-        // extract state and return
-        self.state.read()
-            .iter()
-            .rev()
-            .skip(((self.state.read().len() * size_of_val(&self.state.read()[0])) - 32) / size_of_val(&self.state.read()[0]))
-            .flat_map( |reg|
-                reg.to_le_bytes()
-            )
-            .rev()
-            .collect::<Vec<u8>>()
-            .try_into()
-            .expect("Bad digest")
-    }
-
-    fn from_midstate(&mut self, midstate: Self::Midsate) {
-        self.state.update(
-            midstate
-                        .chunks(4)
-                        .into_iter()
-                        .map(|chk| {
-                            let chk: [u8; 4] = chk.try_into().expect("Bad chunk");
-                            unsafe { std::mem::transmute(chk) }
-                        })
-                        .map(|int: u32| int.to_be())
-                        .collect::<Vec<u32>>()
-                        .try_into()
-                        .expect("Bad state")
-        );
-    }
-
-    fn finalise(&mut self) -> Self::Digest {
-        assert!(self.buffer.len() <= Self::BLOCKSIZE); // check the buffer is less than or equal to one block size.
-
-        // Get the final blocks
-        let fblocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(self.pad_fbuffer());
-        
-        assert!(fblocks.len() <= 2);
-        for fblock in fblocks {
-            Self::process_block(&mut self.state, fblock);
-        }
-
-        // The midstate as this point is the result of the hash function
-        self.midstate()
-    }
-}
-
+/// Macro to implement input padding for SHA2 hash functions
 macro_rules! sha2_pad_fbuffer {
     () => {
+        /// Pad the final buffer upon hash finalisation
         fn pad_fbuffer(&self) -> Message<{Self::BLOCKSIZE}> {
             let mut fmsg_data: Vec<u8> = if self.buffer.len() + size_of_val(&self.length) + 1 >= Self::BLOCKSIZE {
                 Vec::with_capacity(Self::BLOCKSIZE*2)
@@ -302,10 +107,107 @@ macro_rules! sha2_pad_fbuffer {
     };
 }
 
-impl Sha256m {
+/// Macro to implement hash finalisation for SHA2 hash functions
+macro_rules! sha2_finalisation {
+    ($digest_size: expr) => {
+        fn finalise(&mut self) -> Self::Digest {
+            assert!(self.buffer.len() <= Self::BLOCKSIZE); // check the buffer is less than or equal to one block size.
+    
+            // Get the final blocks
+            let fblocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(self.pad_fbuffer());
+            
+            assert!(fblocks.len() <= 2);
+            for fblock in fblocks {
+                Self::process_block(&mut self.state, fblock);
+            }
+    
+            self.state.read()
+                .iter()
+                .rev()
+                .skip(((self.state.read().len() * size_of_val(&self.state.read()[0])) - $digest_size) / size_of_val(&self.state.read()[0]))
+                .flat_map( |reg|
+                    reg.to_le_bytes()
+                )
+                .rev()
+                .collect::<Vec<u8>>()
+                .try_into()
+                .expect("Bad digest")
+        }
+    }
+}
+
+
+
+// Define the 4 SHA2 hash function structs and implementations here
+hash_struct!(Sha224, u64, u32, 8);
+hash_struct!(Sha256, u64, u32, 8);
+hash_struct!(Sha384, u128, u64, 8);
+hash_struct!(Sha512, u128, u64, 8);
+
+impl HashEngine for Sha224 {
+    type Digest = [u8; 28];
+    type Midsate = [u32; 8];
+    const BLOCKSIZE: usize = 64;
+
+    input_func!(u64);
+    iconst_funcs!(SHA224_INITIAL_CONSTANTS);
+    midstate_funcs!();
+    sha2_finalisation!(28);
+}
+
+impl HashEngine for Sha256 {
+    type Digest = [u8; 32];
+    type Midsate = [u32; 8];
+    const BLOCKSIZE: usize = 64;
+
+    input_func!(u64);
+    iconst_funcs!(SHA256_INITIAL_CONSTANTS);
+    midstate_funcs!();
+    sha2_finalisation!(32);
+}
+
+impl HashEngine for Sha384 {
+    type Digest = [u8; 48];
+    type Midsate = [u64; 8];
+    const BLOCKSIZE: usize = 128;
+
+    input_func!(u128);
+    iconst_funcs!(SHA384_INITIAL_CONSTANTS);
+    midstate_funcs!();
+    sha2_finalisation!(48);
+}
+
+impl HashEngine for Sha512 {
+    type Digest = [u8; 64];
+    type Midsate = [u64; 8];
+    const BLOCKSIZE: usize = 128;
+
+    input_func!(u128);
+    iconst_funcs!(SHA512_INITIAL_CONSTANTS);
+    midstate_funcs!();
+    sha2_finalisation!(64);
+}
+
+impl Sha224 {
     sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32);
     sha2_pad_fbuffer!();
 }
+
+impl Sha256 {
+    sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32);
+    sha2_pad_fbuffer!();
+}
+
+impl Sha384 {
+    sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64);
+    sha2_pad_fbuffer!();
+}
+
+impl Sha512 {
+    sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64);
+    sha2_pad_fbuffer!();
+}
+
 
 
 
@@ -357,7 +259,6 @@ macro_rules! sha2_hash_finalisation {
 #[cfg(test)]
 mod tests {
     use super::{HashEngine, Sha224, Sha256, Sha384, Sha512};
-    use super::{HashEngine2, Sha256m};
 
     #[test]
     fn sha224() {
@@ -372,7 +273,7 @@ mod tests {
         for case in cases {
             let mut hasher = Sha224::new();
             hasher.input(&case.0);
-            let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
+            let digest = hasher.finalise().iter().map(|x| format!("{:02x}", x)).collect::<String>();
             assert_eq!(digest, case.1);
         }
     }
@@ -381,7 +282,7 @@ mod tests {
     fn sha256() {
         let cases: Vec<(Vec<u8>, &str)> = vec![
             (vec![0x61, 0x62, 0x63], "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
-            (b"0000000000000000000000000000000000000000000000000000000".to_vec(), "9f8ef876f51f5313c91cc3f6b8119af09d8bbdd72098fa149b2780eb3591d6be"),
+            (b"0000000000000000000000000000000000000000000000000000000000000000".to_vec(), "60e05bd1b195af2f94112fa7197a5c88289058840ce7c6df9693756bc6250f55"),
             (vec![
                 0x61 ,0x62, 0x63, 0x64, 0x62, 0x63, 0x64, 0x65, 0x63, 0x64, 0x65, 0x66, 0x64, 0x65, 0x66, 0x67, 0x65, 0x66, 0x67, 0x68, 0x66, 0x67, 0x68, 0x69, 0x67,
                 0x68, 0x69, 0x6a, 0x68, 0x69, 0x6a, 0x6b, 0x69, 0x6a, 0x6b, 0x6c, 0x6a, 0x6b, 0x6c, 0x6d, 0x6b, 0x6c, 0x6d, 0x6e, 0x6c, 0x6d, 0x6e, 0x6f, 0x6d, 0x6e,
@@ -394,8 +295,9 @@ mod tests {
         
         
         for case in cases {
-            let mut hasher = Sha256m::new();
+            let mut hasher = Sha256::new();
             hasher.input(&case.0);
+            println!("Midstate = {:?}", hasher.midstate());
             let digest = hasher.finalise().iter().map(|x| format!("{:02x}", x)).collect::<String>();
             assert_eq!(digest, case.1);
 
@@ -415,7 +317,7 @@ mod tests {
         for case in cases {
             let mut hasher = Sha384::new();
             hasher.input(&case.0);
-            let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
+            let digest = hasher.finalise().iter().map(|x| format!("{:02x}", x)).collect::<String>();
             assert_eq!(digest, case.1);
         }
     }
@@ -433,7 +335,7 @@ mod tests {
         for case in cases {
             let mut hasher = Sha512::new();
             hasher.input(&case.0);
-            let digest = hasher.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
+            let digest = hasher.finalise().iter().map(|x| format!("{:02x}", x)).collect::<String>();
             assert_eq!(digest, case.1);
         }
     }
