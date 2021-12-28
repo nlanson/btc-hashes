@@ -11,19 +11,26 @@ use std::ops::{
 };
 use std::convert::TryFrom;
 
+
 pub trait HashEngine {
     type Digest: Into<Vec<u8>> + IntoIterator<Item=u8> + TryFrom<Vec<u8>> + AsRef<[u8]> + Copy;
+    type Midsate;
     const BLOCKSIZE: usize;
 
     fn new() -> Self;
 
-    /// Takes in new inputs
     fn input<I>(&mut self, data: I) where I: AsRef<[u8]>;
 
     fn reset(&mut self);
 
-    fn hash(&mut self) -> Self::Digest;
+    fn midstate(&self) -> Self::Midsate;
+
+    fn from_midstate(&mut self, midstate: Self::Midsate);
+
+    fn finalise(&mut self) -> Self::Digest;
 }
+
+
 
 pub trait KeyBasedHashEngine: HashEngine {
     fn key<I>(&mut self, key: I) where I: AsRef<[u8]>;
@@ -51,45 +58,72 @@ impl<T: Copy, const N: usize> State<T, N> {
     }
 }
 
-macro_rules! basic_hash_struct {
-    ($name: ident) => {
+/// Macro to create a new struct
+macro_rules! hash_struct {
+    ($name: ident, $length: ty, $state: ty, $state_len: expr) => {
         pub struct $name {
-            input: Vec<u8>
+            buffer: Vec<u8>,
+            length: $length,
+            state: State<$state, $state_len>
         }
     };
 }
 
-macro_rules! input_function {
-    () => {
-        fn input<I>(&mut self, data: I)
-        where I: AsRef<[u8]> {
-            self.input.extend_from_slice(data.as_ref())
-        }
-    };
-}
-
-macro_rules! default_function {
-    () => {
+/// Macro to implement functions that require initial constants.
+macro_rules! iconst_funcs {
+    ($iconsts: expr) => {
         fn new() -> Self {
             Self {
-                input: vec![]
+                buffer: vec![],
+                length: 0,
+                state: State::init($iconsts)
             }
         }
+
+        fn reset(&mut self) {
+            self.buffer = vec![];
+            self.length = 0;
+            self.state = State::init($iconsts)
+        }
+    };
+}
+
+/// Functions related to midstate
+macro_rules! midstate_funcs {
+    () => {
+        fn midstate(&self) -> Self::Midsate {
+            self.state.read() // extracting the entire state without omitting registers
+        }
+    
+        fn from_midstate(&mut self, midstate: Self::Midsate) {
+            self.state.update(midstate);
+        } 
     }
 }
 
-macro_rules! reset_engine {
-    () => {
-        fn reset(&mut self) {
-            self.input = vec![]
+/// Macro to implement hash function data inputting
+macro_rules! input_func {
+    (
+        $length_ty: ty
+    ) => {
+        fn input<I>(&mut self, data: I)
+        where I: AsRef<[u8]> {
+            self.buffer.extend(data.as_ref());
+            self.length += (data.as_ref().len() * 8) as $length_ty;
+            while self.buffer.len() >= Self::BLOCKSIZE {
+                let blocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(Message::new(self.buffer[..Self::BLOCKSIZE].to_vec()));
+                assert_eq!(blocks.len(), 1);
+                Self::process_block(&mut self.state, blocks[0]);
+                self.buffer = self.buffer.split_off(Self::BLOCKSIZE);
+            }
         }
     };
 }
 
-pub(crate) use basic_hash_struct;
-pub(crate) use input_function;
-pub(crate) use default_function;
-pub(crate) use reset_engine;
+pub(crate) use hash_struct;
+pub(crate) use iconst_funcs;
+pub(crate) use midstate_funcs;
+pub(crate) use input_func;
 
 
 
@@ -128,24 +162,4 @@ impl Primitive for u64{
     fn to_bytes(&self) -> Vec<u8> {
         self.to_be_bytes().to_vec()
     }
-}
-
-
-// temporary hash engine trait to use while rewriting hash functions that implement the old hash engine trait.
-pub trait HashEngine2 {
-    type Digest: Into<Vec<u8>> + IntoIterator<Item=u8> + TryFrom<Vec<u8>> + AsRef<[u8]> + Copy;
-    type Midsate;
-    const BLOCKSIZE: usize;
-
-    fn new() -> Self;
-
-    fn input<I>(&mut self, data: I) where I: AsRef<[u8]>;
-
-    fn reset(&mut self);
-
-    fn midstate(&self) -> Self::Midsate;
-
-    fn from_midstate(&mut self, midstate: Self::Midsate);
-
-    fn finalise(&mut self) -> Self::Digest;
 }
