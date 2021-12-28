@@ -6,6 +6,8 @@
 // Todo:
 //    - Write
 //        HMAC test cases (https://datatracker.ietf.org/doc/html/rfc4231#section-4)
+//        Midstate test cases
+//        Midstate implementation for Hmac using inner and outer engine midstates
 //
 //    - Implement midstate extraction and starting a hash from a given midstate and data.
 //        > Starting from a given midstate
