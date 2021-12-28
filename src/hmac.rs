@@ -15,7 +15,10 @@
 //      because there are two hash functions. The inner and the outer.
 
 
-use crate::core::{HashEngine, KeyBasedHashEngine};
+use crate::core::{
+    HashEngine,
+    KeyBasedHashEngine
+};
 use std::marker::PhantomData;
 
 
@@ -38,6 +41,7 @@ impl<T: HashEngine> KeyBasedHashEngine for Hmac<T> {
 
 impl<T: HashEngine> HashEngine for Hmac<T> {
     type Digest = T::Digest;
+    type Midsate = T::Midsate;
     const BLOCKSIZE: usize = T::BLOCKSIZE;
     
     fn new() -> Self {
@@ -59,12 +63,20 @@ impl<T: HashEngine> HashEngine for Hmac<T> {
         self.message.extend(data.as_ref())
     }
 
-    fn hash(&mut self) -> Self::Digest {
+    fn midstate(&self) -> Self::Midsate {
+        unimplemented!();
+    }
+
+    fn from_midstate(&mut self, midstate: Self::Midsate) {
+        unimplemented!();
+    }
+
+    fn finalise(&mut self) -> Self::Digest {
         let mut key = self.key.clone();
         if key.len() > Self::BLOCKSIZE {
             let mut e = T::new();
             e.input(key);
-            key = e.hash().into();
+            key = e.finalise().into();
         }
         if key.len() < Self::BLOCKSIZE {
             let mut padding = vec![];
@@ -81,11 +93,11 @@ impl<T: HashEngine> HashEngine for Hmac<T> {
         let mut e = T::new();
         e.input(ipad_key);
         e.input(self.message.clone());
-        let h: Vec<u8> = e.hash().into();
+        let h: Vec<u8> = e.finalise().into();
         e.reset();
         e.input(opad_key);
         e.input(h);
-        e.hash()
+        e.finalise()
     }
 }
 
@@ -93,6 +105,7 @@ impl<T: HashEngine> HashEngine for Hmac<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::HashEngine;
     use crate::Sha256;
 
     #[test]
@@ -100,7 +113,7 @@ mod tests {
         let mut engine: Hmac<Sha256> = Hmac::new();
         engine.key(b"key");
         engine.input(b"The quick brown fox jumps over the lazy dog");
-        let digest = engine.hash().iter().map(|x| format!("{:02x}", x)).collect::<String>();
+        let digest = engine.finalise().iter().map(|x| format!("{:02x}", x)).collect::<String>();
         assert_eq!(digest, "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8");
     }
 }
