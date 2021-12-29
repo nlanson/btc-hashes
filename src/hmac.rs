@@ -13,6 +13,7 @@
 //
 //      The function can be split into two hash engines, both with their own midstate
 //      because there are two hash functions. The inner and the outer.
+//
 
 
 use crate::core::{
@@ -28,29 +29,34 @@ pub struct Hmac<T: HashEngine> {
     message: Vec<u8>
 }
 
+/// Struct used to represent the inner and outer hash midstates of a HMAC function
+pub struct HmacMidState<T: HashEngine> {
+    inner: T::Digest,
+    outer: T::Digest
+}
+
 const OPAD: u8 = 0x5c;
 const IPAD: u8 = 0x36;
 
+
 impl<T: HashEngine> KeyBasedHashEngine for Hmac<T> {
-    /// Add data to be used as the key
-    fn key<I>(&mut self, data: I)
+    // this function/trait should not exist. it is unecessary and only causes problems as an API function. 
+    // however, this trait is necessary for the PBKDF2 struct to restict what hash functions it can
+    // take in so it stays until I can think of a better solution.
+    //
+    // changing the key after a message block has been processed by the inner hash function stuffs up
+    // the state of the inner hash function.
+    fn key<I>(&mut self, key: I)
     where I: AsRef<[u8]> {
-        self.key.extend(data.as_ref())
+        self.key.extend(key.as_ref());
     }
 }
 
+
 impl<T: HashEngine> HashEngine for Hmac<T> {
     type Digest = T::Digest;
-    type Midsate = T::Midsate;
+    type Midsate = HmacMidState<T>;
     const BLOCKSIZE: usize = T::BLOCKSIZE;
-    
-    fn new() -> Self {
-        Self {
-            hash: PhantomData,
-            key: vec![],
-            message: vec![]
-        }
-    }
 
     fn reset(&mut self) {
         self.key = vec![];
@@ -74,7 +80,7 @@ impl<T: HashEngine> HashEngine for Hmac<T> {
     fn finalise(&mut self) -> Self::Digest {
         let mut key = self.key.clone();
         if key.len() > Self::BLOCKSIZE {
-            let mut e = T::new();
+            let mut e = T::default();
             e.input(key);
             key = e.finalise().into();
         }
@@ -90,7 +96,7 @@ impl<T: HashEngine> HashEngine for Hmac<T> {
         
         
         // digest = hash(opad_key || hash(ipad_key || message))
-        let mut e = T::new();
+        let mut e = T::default();
         e.input(ipad_key);
         e.input(self.message.clone());
         let h: Vec<u8> = e.finalise().into();
@@ -98,6 +104,32 @@ impl<T: HashEngine> HashEngine for Hmac<T> {
         e.input(opad_key);
         e.input(h);
         e.finalise()
+    }
+}
+
+impl<T: HashEngine> Default for Hmac<T> {
+    fn default() -> Self {
+        Self {
+            hash: PhantomData::<T>,
+            key: vec![],
+            message: vec![]
+        }
+    }
+}
+
+impl<T: HashEngine> Hmac<T> {
+    pub fn new<I>(key: I) -> Self
+    where I: AsRef<[u8]> {
+        Self {
+            hash: PhantomData::<T>,
+            key: key.as_ref().to_vec(),
+            message: vec![]
+        }
+    }
+
+    pub fn input_key<I>(&mut self, key: I) 
+    where I: AsRef<[u8]> {
+        self.key.extend(key.as_ref())
     }
 }
 
@@ -110,8 +142,7 @@ mod tests {
 
     #[test]
     fn hmac_sha256() {
-        let mut engine: Hmac<Sha256> = Hmac::new();
-        engine.key(b"key");
+        let mut engine: Hmac<Sha256> = Hmac::new(b"key");
         engine.input(b"The quick brown fox jumps over the lazy dog");
         let digest = engine.finalise().iter().map(|x| format!("{:02x}", x)).collect::<String>();
         assert_eq!(digest, "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8");
