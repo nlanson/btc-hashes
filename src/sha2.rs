@@ -13,7 +13,8 @@ use crate::{
         hash_struct,
         iconst_funcs,
         midstate_funcs,
-        input_func
+        input_func,
+        impl_default
     },
     constants::{
         SHA224_INITIAL_CONSTANTS,
@@ -144,6 +145,11 @@ hash_struct!(Sha256, u64, u32, 8);
 hash_struct!(Sha384, u128, u64, 8);
 hash_struct!(Sha512, u128, u64, 8);
 
+impl_default!(Sha224, SHA224_INITIAL_CONSTANTS);
+impl_default!(Sha256, SHA256_INITIAL_CONSTANTS);
+impl_default!(Sha384, SHA384_INITIAL_CONSTANTS);
+impl_default!(Sha512, SHA512_INITIAL_CONSTANTS);
+
 impl HashEngine for Sha224 {
     type Digest = [u8; 28];
     type Midsate = [u32; 8];
@@ -191,21 +197,37 @@ impl HashEngine for Sha512 {
 impl Sha224 {
     sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32);
     sha2_pad_fbuffer!();
+
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl Sha256 {
     sha2_compression!(SHA256_ROUND_CONSTANTS, 64, u32);
     sha2_pad_fbuffer!();
+
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl Sha384 {
     sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64);
     sha2_pad_fbuffer!();
+
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl Sha512 {
     sha2_compression!(SHA512_ROUND_CONSTANTS, 80, u64);
     sha2_pad_fbuffer!();
+
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 

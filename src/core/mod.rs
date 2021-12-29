@@ -12,12 +12,12 @@ use std::ops::{
 use std::convert::TryFrom;
 
 
-pub trait HashEngine {
+pub trait HashEngine: Default {
     type Digest: Into<Vec<u8>> + IntoIterator<Item=u8> + TryFrom<Vec<u8>> + AsRef<[u8]> + Copy;
     type Midsate;
     const BLOCKSIZE: usize;
 
-    fn new() -> Self;
+    //fn new() -> Self;
 
     fn input<I>(&mut self, data: I) where I: AsRef<[u8]>;
 
@@ -58,6 +58,46 @@ impl<T: Copy, const N: usize> State<T, N> {
     }
 }
 
+
+/// Primitive trait
+pub trait Primitive:
+    Into<u128> + 
+    From<u32> + 
+    Add +
+    Rem +
+    BitAnd<Output = Self> +
+    BitXor<Output = Self> +
+    Not<Output = Self> +
+    Shr<usize, Output = Self> +
+    Copy
+{
+    fn rotr(&self, bits: usize) -> Self;
+
+    fn to_bytes(&self) -> Vec<u8>;
+}
+
+impl Primitive for u32 { 
+    fn rotr(&self, bits: usize) -> Self {
+        self.rotate_right(bits as u32)
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.to_be_bytes().to_vec()
+    }
+}
+
+impl Primitive for u64{
+    fn rotr(&self, bits: usize) -> Self {
+        self.rotate_right(bits as u32)
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.to_be_bytes().to_vec()
+    }
+}
+
+
+
 /// Macro to create a new struct
 macro_rules! hash_struct {
     ($name: ident, $length: ty, $state: ty, $state_len: expr) => {
@@ -72,14 +112,6 @@ macro_rules! hash_struct {
 /// Macro to implement functions that require initial constants.
 macro_rules! iconst_funcs {
     ($iconsts: expr) => {
-        fn new() -> Self {
-            Self {
-                buffer: vec![],
-                length: 0,
-                state: State::init($iconsts)
-            }
-        }
-
         fn reset(&mut self) {
             self.buffer = vec![];
             self.length = 0;
@@ -120,46 +152,22 @@ macro_rules! input_func {
     };
 }
 
+macro_rules! impl_default {
+    ($name: ident, $iconsts: expr) => {
+        impl Default for $name {
+            fn default() -> Self {
+                Self {
+                    buffer: vec![],
+                    length: 0,
+                    state: State::init($iconsts)
+                }
+            }
+        }
+    };
+}
+
 pub(crate) use hash_struct;
 pub(crate) use iconst_funcs;
 pub(crate) use midstate_funcs;
 pub(crate) use input_func;
-
-
-
-/// Primitive trait
-pub trait Primitive:
-    Into<u128> + 
-    From<u32> + 
-    Add +
-    Rem +
-    BitAnd<Output = Self> +
-    BitXor<Output = Self> +
-    Not<Output = Self> +
-    Shr<usize, Output = Self> +
-    Copy
-{
-    fn rotr(&self, bits: usize) -> Self;
-
-    fn to_bytes(&self) -> Vec<u8>;
-}
-
-impl Primitive for u32 { 
-    fn rotr(&self, bits: usize) -> Self {
-        self.rotate_right(bits as u32)
-    }
-
-    fn to_bytes(&self) -> Vec<u8> {
-        self.to_be_bytes().to_vec()
-    }
-}
-
-impl Primitive for u64{
-    fn rotr(&self, bits: usize) -> Self {
-        self.rotate_right(bits as u32)
-    }
-
-    fn to_bytes(&self) -> Vec<u8> {
-        self.to_be_bytes().to_vec()
-    }
-}
+pub(crate) use impl_default;

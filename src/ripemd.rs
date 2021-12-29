@@ -13,7 +13,8 @@ use crate::{
         hash_struct,
         iconst_funcs,
         midstate_funcs,
-        input_func
+        input_func,
+        impl_default
     },
     constants::RIPEMD160_INITIAL_CONSTANTS
 };
@@ -33,6 +34,7 @@ macro_rules! round {
 }
 
 hash_struct!(Ripemd160, u64, u32, 5);
+impl_default!(Ripemd160, RIPEMD160_INITIAL_CONSTANTS);
 
 impl HashEngine for Ripemd160 {
     type Digest = [u8; 20];
@@ -66,6 +68,10 @@ impl HashEngine for Ripemd160 {
 }
 
 impl Ripemd160 {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
     /// Process a RIPEMD160 data block
     fn process_block(mdbuf: &mut State<u32, 5>, block: MessageBlock<{Self::BLOCKSIZE}>) {
         let mut schedule: MessageSchedule<u32, 16> = MessageSchedule::from(block);

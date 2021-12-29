@@ -7,7 +7,7 @@ use std::{
     convert::TryInto
 };
 
-pub struct PBKDF2<T: HashEngine> {
+pub struct PBKDF2<T: KeyBasedHashEngine> {
     hash: PhantomData<T>,
     password: Vec<u8>,
     salt: Vec<u8>,
@@ -20,28 +20,27 @@ impl<T: KeyBasedHashEngine> PBKDF2<T> {
         self.iter = count;
     }
 
-    /// Input salt to be used in key derivation
-    pub fn salt<I>(&mut self, salt: I)
+    pub fn input_salt<I>(&mut self, salt: I)
     where I: AsRef<[u8]> {
         self.salt.extend(salt.as_ref());
     }
 
     // F(Password, Salt, c, i) = U1 ^ U2 ^ ⋯ ^ Uc
     fn f_compression(&self) -> T::Digest {
-        let mut prf = T::new();
-        prf.key(&self.password);
-        prf.input(&self.salt);
-        prf.input(1u32.to_be_bytes());
+        let mut prf = T::default();          // Create a new empty key based hash engine
+        prf.key(&self.password);             // Input the password to be compressed into the hash engine as the key
+        prf.input(&self.salt);          // Input the salt as the hash engine's message
+        prf.input(1u32.to_be_bytes());  // Input '1' to start off
         let mut u: Vec<T::Digest> = vec![prf.finalise()];
         prf.reset();
-        for i in 1..self.iter {
+        for i in 1..self.iter {             // For each iteration, hash the previous hash with the password
             prf.key(&self.password);
             prf.input(&u[i-1]);
             u.push(prf.finalise());
             prf.reset();
         }
 
-        while u.len() != 1 {
+        while u.len() != 1 {                // XOR each of the hashes together recursively until one remains
             let xor: Result<_, _> = u[0]
                         .into_iter()
                         .zip(u[1].into_iter())
@@ -68,15 +67,6 @@ impl<T: KeyBasedHashEngine> HashEngine for PBKDF2<T> {
     type Digest = T::Digest;
     type Midsate = T::Midsate;
     const BLOCKSIZE: usize = T::BLOCKSIZE;
-
-    fn new() -> Self {
-        Self {
-            hash: PhantomData,
-            password: vec![],
-            salt: vec![],
-            iter: 1
-        }
-    }
 
     /// Input the password to be hashed
     fn input<I>(&mut self, data: I)
@@ -108,6 +98,30 @@ impl<T: KeyBasedHashEngine> HashEngine for PBKDF2<T> {
     }
 }
 
+impl<T: KeyBasedHashEngine> Default for PBKDF2<T> {
+    fn default() -> Self {
+        Self {
+            hash: PhantomData::<T>,
+            password: vec![],
+            salt: vec![],
+            iter: 1
+        }
+    }
+}
+
+impl<T: KeyBasedHashEngine> PBKDF2<T> {
+    /// Create a new PBKDF2 hasher with the parameter as salt.
+    pub fn new<I>(salt: I) -> Self
+    where I: AsRef<[u8]> {        
+        Self {
+            hash: PhantomData::<T>,
+            password: vec![],
+            salt: salt.as_ref().to_vec(),
+            iter: 1
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,9 +132,8 @@ mod tests {
     #[test]
     fn pbkdf2_hmac_sha512() {
         // Test cases from: https://stackoverflow.com/questions/15593184/pbkdf2-hmac-sha-512-test-vectors
-        let mut e = PBKDF2::<Hmac<Sha512>>::new();
+        let mut e = PBKDF2::<Hmac<Sha512>>::new(b"salt");
         e.input(b"password");
-        e.salt(b"salt");
 
         // 1 iteration
         e.iter(1);
@@ -140,7 +153,7 @@ mod tests {
         // update data
         e.reset();
         e.input(b"passwordPASSWORDpassword");
-        e.salt(b"saltSALTsaltSALTsaltSALTsaltSALTsalt");
+        e.input_salt(b"saltSALTsaltSALTsaltSALTsaltSALTsalt");
         e.iter(4096);
         let digest = e.finalise().iter().map(|x| format!("{:02x}", x)).collect::<String>();
         assert_eq!(digest, "8c0511f4c6e597c6ac6315d8f0362e225f3c501495ba23b868c005174dc4ee71115b59f9e60cd9532fa33e0f75aefe30225c583a186cd82bd4daea9724a3d3b8");
@@ -150,9 +163,8 @@ mod tests {
     #[ignore]
     // great test to run for speed benching
     fn pbkdf2_speed_test() {
-        let mut e = PBKDF2::<Hmac<Sha384>>::new();
+        let mut e = PBKDF2::<Hmac<Sha384>>::new(b"salt");
         e.input(b"password");
-        e.input(b"salt");
         e.iter(69420);
         e.finalise();
     }
