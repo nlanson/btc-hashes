@@ -27,17 +27,17 @@ impl<T: KeyBasedHashEngine> PBKDF2<T> {
 
     // F(Password, Salt, c, i) = U1 ^ U2 ^ ⋯ ^ Uc
     fn f_compression(&self) -> T::Digest {
-        let mut prf = T::default();          // Create a new empty key based hash engine
-        prf.key(&self.password);             // Input the password to be compressed into the hash engine as the key
-        prf.input(&self.salt);          // Input the salt as the hash engine's message
-        prf.input(1u32.to_be_bytes());  // Input '1' to start off
+        let mut prf = T::new_with_key(&self.password); // Input the password to be compressed into the hash engine as the key
+        prf.input(&self.salt);                    // Input the salt as the hash engine's message
+        prf.input(1u32.to_be_bytes());            // Input '1' to start off
         let mut u: Vec<T::Digest> = vec![prf.finalise()];
-        prf.reset();
-        for i in 1..self.iter {             // For each iteration, hash the previous hash with the password
-            prf.key(&self.password);
+        drop(prf);
+        for i in 1..self.iter {                        // For each iteration, hash the previous hash with the password
+            let mut prf = T::new_with_key(&self.password);
+            //prf.key(&self.password);
             prf.input(&u[i-1]);
             u.push(prf.finalise());
-            prf.reset();
+            drop(prf)
         }
 
         while u.len() != 1 {                // XOR each of the hashes together recursively until one remains

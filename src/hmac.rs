@@ -46,9 +46,13 @@ impl<T: HashEngine> KeyBasedHashEngine for Hmac<T> {
     //
     // changing the key after a message block has been processed by the inner hash function stuffs up
     // the state of the inner hash function.
-    fn key<I>(&mut self, key: I)
+    fn new_with_key<I>(key: I) -> Self
     where I: AsRef<[u8]> {
-        self.key.extend(key.as_ref());
+        Self {
+            key: key.as_ref().to_vec(),
+            message: vec![],
+            hash: PhantomData::<T>
+        }
     }
 }
 

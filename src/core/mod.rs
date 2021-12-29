@@ -33,7 +33,8 @@ pub trait HashEngine: Default {
 
 
 pub trait KeyBasedHashEngine: HashEngine {
-    fn key<I>(&mut self, key: I) where I: AsRef<[u8]>;
+    fn new_with_key<I>(key: I) -> Self
+    where I: AsRef<[u8]>;
 }
 
 pub struct State<T: Copy, const N: usize> {
