@@ -90,17 +90,16 @@ macro_rules! sha2_pad_fbuffer {
     () => {
         /// Pad the final buffer upon hash finalisation
         fn pad_fbuffer(&self) -> Message<{Self::BLOCKSIZE}> {
-            let mut fmsg_data: Vec<u8> = if self.buffer.len() + size_of_val(&self.length) + 1 >= Self::BLOCKSIZE {
-                Vec::with_capacity(Self::BLOCKSIZE*2)
-            } else {
-                Vec::with_capacity(Self::BLOCKSIZE)
-            };
-            fmsg_data.extend_from_slice(&self.buffer);
+            let end_index = self.length as usize%Self::BLOCKSIZE;  //Data in the buffer past this end index has already been processed.
+            
+            // Create the final message blocks
+            let mut fmsg_data: Vec<u8> = vec![];
+            fmsg_data.extend_from_slice(&self.buffer[..end_index]);
             fmsg_data.push(0x80);                             // append single '1' bit
             while fmsg_data.len()%Self::BLOCKSIZE != Self::BLOCKSIZE-size_of_val(&self.length) {
                 fmsg_data.push(0x00);                         // pad with zeroes
             }
-            fmsg_data.extend(self.length.to_be_bytes()); // append original data length
+            fmsg_data.extend((self.length*8).to_be_bytes());  // append original data length
             assert_eq!(fmsg_data.len()%Self::BLOCKSIZE, 0);   // check the padded data mod blocksize is zero
     
             Message::new(fmsg_data)
@@ -140,57 +139,57 @@ macro_rules! sha2_finalisation {
 
 
 // Define the 4 SHA2 hash function structs and implementations here
-hash_struct!(Sha224, u64, u32, 8);
-hash_struct!(Sha256, u64, u32, 8);
-hash_struct!(Sha384, u128, u64, 8);
-hash_struct!(Sha512, u128, u64, 8);
+hash_struct!(Sha224, 64, u64, u32, 8);
+hash_struct!(Sha256, 64, u64, u32, 8);
+hash_struct!(Sha384, 128, u128, u64, 8);
+hash_struct!(Sha512, 128, u128, u64, 8);
 
-impl_default!(Sha224, SHA224_INITIAL_CONSTANTS);
-impl_default!(Sha256, SHA256_INITIAL_CONSTANTS);
-impl_default!(Sha384, SHA384_INITIAL_CONSTANTS);
-impl_default!(Sha512, SHA512_INITIAL_CONSTANTS);
+impl_default!(Sha224, SHA224_INITIAL_CONSTANTS, Self::BLOCKSIZE);
+impl_default!(Sha256, SHA256_INITIAL_CONSTANTS, Self::BLOCKSIZE);
+impl_default!(Sha384, SHA384_INITIAL_CONSTANTS, Self::BLOCKSIZE);
+impl_default!(Sha512, SHA512_INITIAL_CONSTANTS, Self::BLOCKSIZE);
 
 impl HashEngine for Sha224 {
     type Digest = [u8; 28];
-    type Midsate = [u32; 8];
+    type Midstate = [u32; 8];
     const BLOCKSIZE: usize = 64;
 
     input_func!(u64);
-    iconst_funcs!(SHA224_INITIAL_CONSTANTS);
-    midstate_funcs!();
+    iconst_funcs!(SHA224_INITIAL_CONSTANTS, Self::BLOCKSIZE);
+    midstate_funcs!(u64);
     sha2_finalisation!(28);
 }
 
 impl HashEngine for Sha256 {
     type Digest = [u8; 32];
-    type Midsate = [u32; 8];
+    type Midstate = [u32; 8];
     const BLOCKSIZE: usize = 64;
 
     input_func!(u64);
-    iconst_funcs!(SHA256_INITIAL_CONSTANTS);
-    midstate_funcs!();
+    iconst_funcs!(SHA256_INITIAL_CONSTANTS, Self::BLOCKSIZE);
+    midstate_funcs!(u64);
     sha2_finalisation!(32);
 }
 
 impl HashEngine for Sha384 {
     type Digest = [u8; 48];
-    type Midsate = [u64; 8];
+    type Midstate = [u64; 8];
     const BLOCKSIZE: usize = 128;
 
     input_func!(u128);
-    iconst_funcs!(SHA384_INITIAL_CONSTANTS);
-    midstate_funcs!();
+    iconst_funcs!(SHA384_INITIAL_CONSTANTS, Self::BLOCKSIZE);
+    midstate_funcs!(u128);
     sha2_finalisation!(48);
 }
 
 impl HashEngine for Sha512 {
     type Digest = [u8; 64];
-    type Midsate = [u64; 8];
+    type Midstate = [u64; 8];
     const BLOCKSIZE: usize = 128;
 
     input_func!(u128);
-    iconst_funcs!(SHA512_INITIAL_CONSTANTS);
-    midstate_funcs!();
+    iconst_funcs!(SHA512_INITIAL_CONSTANTS, Self::BLOCKSIZE);
+    midstate_funcs!(u128);
     sha2_finalisation!(64);
 }
 
@@ -229,53 +228,6 @@ impl Sha512 {
         Self::default()
     }
 }
-
-
-
-
-#[allow(unused_macros)]
-macro_rules! sha2_hash_finalisation {
-    ($digest_size: expr) => {
-        assert!(self.buffer.len() <= Self::BLOCKSIZE); // check the buffer is less than or equal to one block size.
-
-        // Get the final blocks
-        let fblocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = {
-            let mut fmsg_data: Vec<u8> = if self.buffer.len() + size_of_val(&self.length) + 1 >= Self::BLOCKSIZE {
-                Vec::with_capacity(Self::BLOCKSIZE*2)
-            } else {
-                Vec::with_capacity(Self::BLOCKSIZE)
-            };
-            fmsg_data.extend_from_slice(&self.buffer);
-            fmsg_data.push(0x80);                             // append single '1' bit
-            while fmsg_data.len()%Self::BLOCKSIZE != Self::BLOCKSIZE-size_of_val(&self.length) {
-                fmsg_data.push(0x00);                         // pad with zeroes
-            }
-            fmsg_data.extend(self.length.to_be_bytes()); // append original data length
-            assert_eq!(fmsg_data.len()%Self::BLOCKSIZE, 0);   // check the padded data mod blocksize is zero
-
-            MessageBlock::from_message(Message::new(fmsg_data))
-        };
-        
-        
-        assert!(fblocks.len() <= 2);
-        for fblock in fblocks {
-            Self::process_block(&mut self.state, fblock);
-        }
-
-        self.state.read()
-            .iter()
-            .rev()
-            .skip(((self.state.read().len() * size_of_val(&self.state.read()[0])) - $digest_size) / size_of_val(&self.state.read()[0]))
-            .flat_map( |reg|
-                reg.to_le_bytes()
-            )
-            .rev()
-            .collect::<Vec<u8>>()
-            .try_into()
-            .expect("Bad digest")
-    };
-}
-
 
 
 #[cfg(test)]
@@ -319,7 +271,6 @@ mod tests {
         for case in cases {
             let mut hasher = Sha256::new();
             hasher.input(&case.0);
-            println!("Midstate = {:?}", hasher.midstate());
             let digest = hasher.finalise().iter().map(|x| format!("{:02x}", x)).collect::<String>();
             assert_eq!(digest, case.1);
 

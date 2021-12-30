@@ -33,21 +33,19 @@ macro_rules! round {
     };
 }
 
-hash_struct!(Ripemd160, u64, u32, 5);
-impl_default!(Ripemd160, RIPEMD160_INITIAL_CONSTANTS);
+hash_struct!(Ripemd160, 64, u64, u32, 5);
+impl_default!(Ripemd160, RIPEMD160_INITIAL_CONSTANTS, Self::BLOCKSIZE);
 
 impl HashEngine for Ripemd160 {
     type Digest = [u8; 20];
-    type Midsate = [u32; 5];
+    type Midstate = [u32; 5];
     const BLOCKSIZE: usize = 64;
 
     input_func!(u64);
-    iconst_funcs!(RIPEMD160_INITIAL_CONSTANTS);
-    midstate_funcs!();
+    iconst_funcs!(RIPEMD160_INITIAL_CONSTANTS, Self::BLOCKSIZE);
+    midstate_funcs!(u64);
 
     fn finalise(&mut self) -> Self::Digest {
-        assert!(self.buffer.len() <= Self::BLOCKSIZE); // check the buffer is less than or equal to one block size.
-    
         // Get the final blocks
         let fblocks: Vec<MessageBlock<{Self::BLOCKSIZE}>> = MessageBlock::from_message(self.pad_fbuffer());
         
@@ -173,20 +171,19 @@ impl Ripemd160 {
         mdbuf.update(new_state);
     }
 
-    /// Pad the final buffer upon hash finalisation
+    /// Padding the final buffer upon hash finalisation
     fn pad_fbuffer(&self) -> Message<{Self::BLOCKSIZE}> {
-        let mut fmsg_data: Vec<u8> = if self.buffer.len() + size_of_val(&self.length) + 1 >= Self::BLOCKSIZE {
-            Vec::with_capacity(Self::BLOCKSIZE*2)
-        } else {
-            Vec::with_capacity(Self::BLOCKSIZE)
-        };
-        fmsg_data.extend_from_slice(&self.buffer);
-        fmsg_data.push(0x80);                             // append single '1' bit
+        let end_index = self.length as usize%Self::BLOCKSIZE; //Data in the buffer past this end index has already been processed.
+        
+        // Create the final message blocks
+        let mut fmsg_data: Vec<u8> = vec![];
+        fmsg_data.extend_from_slice(&self.buffer[..end_index]);
+        fmsg_data.push(0x80);                                 // append single '1' bit
         while fmsg_data.len()%Self::BLOCKSIZE != Self::BLOCKSIZE-size_of_val(&self.length) {
-            fmsg_data.push(0x00);                         // pad with zeroes
+            fmsg_data.push(0x00);                             // pad with zeroes
         }
-        fmsg_data.extend(self.length.to_le_bytes()); // append original data length
-        assert_eq!(fmsg_data.len()%Self::BLOCKSIZE, 0);   // check the padded data mod blocksize is zero
+        fmsg_data.extend((self.length*8).to_le_bytes()); // append original data length in bits (Ripemd uses little endian here)
+        assert_eq!(fmsg_data.len()%Self::BLOCKSIZE, 0);       // check the padded data mod blocksize is zero
 
         Message::new(fmsg_data)
     }
