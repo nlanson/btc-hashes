@@ -65,7 +65,7 @@ impl<T: KeyBasedHashEngine> PBKDF2<T> {
 
 impl<T: KeyBasedHashEngine> HashEngine for PBKDF2<T> {
     type Digest = T::Digest;
-    type Midsate = T::Midsate;
+    type Midstate = T::Midstate;
     const BLOCKSIZE: usize = T::BLOCKSIZE;
 
     /// Input the password to be hashed
@@ -81,11 +81,11 @@ impl<T: KeyBasedHashEngine> HashEngine for PBKDF2<T> {
         self.iter = 1;
     }
 
-    fn midstate(&self) -> Self::Midsate {
+    fn midstate(&self) -> Self::Midstate {
         unimplemented!("PBKDF2 has no midstate");
     }
 
-    fn from_midstate(&mut self, midstate: Self::Midsate) {
+    fn from_midstate(&mut self, _midstate: Self::Midstate, _length: usize) {
         unimplemented!("PBKDF2 has no midstate");
     }
 
