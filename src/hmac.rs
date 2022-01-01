@@ -41,9 +41,9 @@ pub struct HmacMidState<T: HashEngine> {
 impl<T: HashEngine> Default for Hmac<T> {
     fn default() -> Self {        
         Self {
-            inner: T::default(),
+            inner: T::default(),             // Hasher with no data inputted
             outer: T::default(),
-            istate: HmacMidState::default(),
+            istate: HmacMidState::default(), // HmacMidstate with empty key
             msg_buffer: vec![]
         }
     }
@@ -141,7 +141,7 @@ impl<T: HashEngine+Copy> KeyBasedHashEngine for Hmac<T> {
         assert_eq!(ipad_key.len(), T::BLOCKSIZE);
 
         // Input the result into respective inner/outer engines.
-        engine.inner.input(ipad_key);
+        engine.inner.input(ipad_key);  //the inner/outer engines have not yet hashed anything. (see Hmac<T>::default())
         engine.outer.input(opad_key);
 
         // Set the initial state of outer and inner engine's to the opad/ipad keys.
