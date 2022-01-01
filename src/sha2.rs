@@ -277,6 +277,28 @@ mod tests {
         }
     }
 
+    #[ignore]
+    #[test]
+    fn h_ps() {
+        // This test runs the hasher on loop for 1 second and measures how many hashes per second and computed.
+        // Currently, the average rate is around 3700~3800 hashes/second
+        let now = std::time::Instant::now();
+        let mut e = Sha256::new();
+        let mut i = 0;
+        loop {
+            e.input([0; 64]);
+            e.finalise();
+            println!("[{}] {}", i, e.finalise().iter().map(|x| format!("{:02x}", x)).collect::<String>());
+            i = i+1;
+
+            if now.elapsed().as_secs() == 1 {
+                break;
+            }
+        }
+
+        println!("Completed {} hashes per second", i);
+    }
+
     #[test]
     fn sha384() {
         let cases: Vec<(Vec<u8>, &str)> = vec![
