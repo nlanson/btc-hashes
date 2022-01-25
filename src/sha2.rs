@@ -121,17 +121,21 @@ macro_rules! sha2_finalisation {
                 Self::process_block(&mut self.state, fblock);
             }
     
-            self.state.read()
-                .iter()
-                .rev()
-                .skip(((self.state.read().len() * size_of_val(&self.state.read()[0])) - $digest_size) / size_of_val(&self.state.read()[0]))
-                .flat_map( |reg|
-                    reg.to_le_bytes()
-                )
-                .rev()
-                .collect::<Vec<u8>>()
-                .try_into()
-                .expect("Bad digest")
+            let mut result = [0u8; $digest_size];
+            
+            result.copy_from_slice(
+                &self.state.read()
+                    .iter()
+                    .rev()
+                    .skip(((self.state.read().len() * size_of_val(&self.state.read()[0])) - $digest_size) / size_of_val(&self.state.read()[0]))
+                    .flat_map( |reg|
+                        reg.to_le_bytes()
+                    )
+                    .rev()
+                    .collect::<Vec<u8>>()
+            );
+
+            result
         }
     }
 }

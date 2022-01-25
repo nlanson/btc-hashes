@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::{
     core::{
         message::{
@@ -54,14 +52,18 @@ impl HashEngine for Ripemd160 {
             Self::process_block(&mut self.state, fblock);
         }
 
-        self.state.read()
-            .iter()
-            .flat_map(|buf|
-                buf.to_le_bytes()
-            )
-            .collect::<Vec<u8>>()
-            .try_into()
-            .expect("Bad digest")
+        let mut result: [u8; 20] = [0; 20];
+
+        result.copy_from_slice(
+            &self.state.read()
+                .iter()
+                .flat_map(|buf|
+                    buf.to_le_bytes()
+                )
+                .collect::<Vec<u8>>()
+        );
+
+        result
     }
 }
 
