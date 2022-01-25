@@ -6,7 +6,6 @@
 // bit blocks.
 
 
-use std::convert::TryInto;
 use crate::core::{
     functions::sha2::SigmaFunctions,
     Primitive
@@ -52,7 +51,9 @@ impl<const N: usize> MessageBlock<N> {
 
 impl<const N: usize> From<&[u8]> for MessageBlock<N> {
     fn from(slice: &[u8]) -> MessageBlock<N> {
-        let a: [u8; N] = slice.try_into().expect("Bad slice");
+        let mut a = [0u8; N];
+        a.copy_from_slice(slice);
+
         MessageBlock(a)
     }
 }
@@ -74,8 +75,9 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
         let mut words: Vec<Word<u32>> = block.0
             .chunks(4)
             .into_iter()
-            .map(|chunk| { //Words are big endian.
-                let mut chunk: [u8; 4] = chunk.try_into().expect("Bad chunk");
+            .map(|chnk_slc| { //Words are big endian.
+                let mut chunk = [0u8; 4];
+                chunk.copy_from_slice(chnk_slc);
                 chunk.reverse();
                 Word::new(unsafe { std::mem::transmute(chunk) })
             })
@@ -98,8 +100,9 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
         }
 
         assert_eq!(words.len(), W);
-        let words: [Word<u32>; W] = words.try_into().expect("Bad words");
-        MessageSchedule(words)
+        let mut schedule_words = [Word::new(0); W];
+        schedule_words.copy_from_slice(&words);
+        MessageSchedule(schedule_words)
     }
 }
 
@@ -111,8 +114,9 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
         let mut words: Vec<Word<u64>> = block.0
             .chunks(8)
             .into_iter()
-            .map(|chunk| {
-                let mut chunk: [u8; 8] = chunk.try_into().expect("Bad chunk");
+            .map(|chnk_slc| {
+                let mut chunk = [0u8; 8];
+                chunk.copy_from_slice(chnk_slc);
                 chunk.reverse();
                 Word::new(unsafe { std::mem::transmute(chunk) })
             })
@@ -135,8 +139,9 @@ impl<const N: usize, const W: usize> From<MessageBlock<N>> for MessageSchedule<u
         }
 
         assert_eq!(words.len(), W);
-        let words: [Word<u64>; W] = words.try_into().expect("Bad words");
-        MessageSchedule(words)
+        let mut schedule_words = [Word::new(0); W];
+        schedule_words.copy_from_slice(&words);
+        MessageSchedule(schedule_words)
     }
 }
 
